@@ -1,5 +1,7 @@
 # 💰 Controle de Gastos
 
+[![Testes](https://github.com/Lakes777/controle-gastos/actions/workflows/testes.yml/badge.svg)](https://github.com/Lakes777/controle-gastos/actions/workflows/testes.yml)
+
 Aplicativo de linha de comando para registrar e acompanhar gastos pessoais, feito em Python puro.
 
 ```
