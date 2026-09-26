@@ -17,6 +17,7 @@ TOTAL             R$ 960,20
 
 - **Adicionar** gastos com valor, categoria, descrição e data
 - **Listar** todos os gastos em ordem cronológica, cada um com seu número
+- **Editar** um gasto pelo número, mudando só os campos informados
 - **Remover** um gasto pelo número
 - **Resumir** o total por categoria, com filtro por mês
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
@@ -42,6 +43,10 @@ python -m gastos adicionar 12.50 transporte --data 2026-09-20
 
 # Listar todos os gastos (com o número de cada um)
 python -m gastos listar
+
+# Editar o gasto número 2 (só muda o que for informado)
+python -m gastos editar 2 --valor 25,00 --categoria transporte
+python -m gastos editar 2 --descricao ""    # apaga a descrição
 
 # Remover o gasto número 2
 python -m gastos remover 2
@@ -71,7 +76,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo) e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção) e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -97,7 +102,7 @@ controle-gastos/
 
 ## Próximos passos
 
-- [ ] Editar e remover gastos
+- [x] Editar e remover gastos
 - [x] Migrar o armazenamento para SQLite
 - [ ] Exportar para CSV
 - [ ] Gráficos de gastos por mês

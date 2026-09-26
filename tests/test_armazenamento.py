@@ -160,3 +160,23 @@ def test_numero_de_gasto_removido_nao_e_reaproveitado(tmp_path):
     novo = banco.adicionar(Gasto(Decimal("3"), "c"))
 
     assert novo.id == ultimo.id + 1
+
+
+# --- Atualizar ---
+
+
+def test_atualizar_muda_so_o_gasto_escolhido(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+    outro = banco.adicionar(Gasto(Decimal("10"), "mercado", data=date(2026, 9, 1)))
+    alvo = banco.adicionar(Gasto(Decimal("20"), "uber", data=date(2026, 9, 2)))
+    editado = Gasto(Decimal("25.50"), "transporte", "corrida", date(2026, 9, 3), id=alvo.id)
+
+    assert banco.atualizar(editado) is True
+    assert banco.listar() == [outro, editado]
+
+
+def test_atualizar_id_inexistente_devolve_false(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+
+    assert banco.atualizar(Gasto(Decimal("1"), "a", id=999)) is False
+    assert banco.listar() == []

@@ -106,3 +106,46 @@ def test_remover_numero_inexistente_da_erro(tmp_path, monkeypatch):
         rodar(monkeypatch, "remover", "7")
 
     assert "Nenhum gasto com o número 7" in str(erro.value)
+
+
+def test_editar_muda_so_os_campos_informados(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "adicionar", "23,59", "uber", "ida ao centro", "--data", "2026-09-23")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "editar", "1", "--valor", "25", "--categoria", "Transporte")
+    assert "Gasto 1 atualizado: R$ 25,00 em transporte (23/09/2026)" in capsys.readouterr().out
+
+    rodar(monkeypatch, "listar")
+    saida = capsys.readouterr().out
+    assert "ida ao centro" in saida  # descrição não foi pedida, então não mudou
+    assert "uber" not in saida
+
+
+def test_editar_pode_apagar_a_descricao(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "adicionar", "10", "lanche", "coxinha")
+
+    rodar(monkeypatch, "editar", "1", "--descricao", "")
+    rodar(monkeypatch, "listar")
+
+    assert "coxinha" not in capsys.readouterr().out
+
+
+def test_editar_sem_nenhum_campo_da_erro(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "adicionar", "10", "lanche")
+
+    with pytest.raises(SystemExit) as erro:
+        rodar(monkeypatch, "editar", "1")
+
+    assert "Diga o que mudar" in str(erro.value)
+
+
+def test_editar_numero_inexistente_da_erro(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit) as erro:
+        rodar(monkeypatch, "editar", "7", "--valor", "5")
+
+    assert "Nenhum gasto com o número 7" in str(erro.value)

@@ -107,6 +107,22 @@ class Banco:
             linha = conexao.execute("SELECT * FROM gastos WHERE id = ?", (id,)).fetchone()
         return self._para_gasto(linha) if linha else None
 
+    def atualizar(self, gasto: Gasto) -> bool:
+        """Grava os novos dados do gasto. Devolve False se não havia gasto com esse id."""
+        with self._conectar() as conexao:
+            cursor = conexao.execute(
+                "UPDATE gastos SET valor = ?, categoria = ?, descricao = ?, data = ? "
+                "WHERE id = ?",
+                (
+                    str(gasto.valor),
+                    gasto.categoria,
+                    gasto.descricao,
+                    gasto.data.isoformat(),
+                    gasto.id,
+                ),
+            )
+        return cursor.rowcount > 0
+
     def remover(self, id: int) -> bool:
         """Apaga o gasto. Devolve False se não havia gasto com esse id."""
         with self._conectar() as conexao:

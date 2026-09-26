@@ -3,6 +3,7 @@
 import argparse
 import sys
 from collections import defaultdict
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -56,6 +57,34 @@ def cmd_listar(args: argparse.Namespace) -> None:
         )
 
 
+def cmd_editar(args: argparse.Namespace) -> None:
+    # Só os campos que o usuário digitou (os outros ficam None e não mudam).
+    mudancas = {
+        campo: valor
+        for campo, valor in {
+            "valor": args.valor,
+            "categoria": args.categoria.lower() if args.categoria else None,
+            "descricao": args.descricao,
+            "data": args.data,
+        }.items()
+        if valor is not None
+    }
+    if not mudancas:
+        sys.exit("Diga o que mudar: --valor, --categoria, --descricao e/ou --data")
+
+    banco = Banco()
+    gasto = banco.buscar(args.id)
+    if gasto is None:
+        sys.exit(f"Nenhum gasto com o número {args.id}. Veja os números com: listar")
+
+    editado = replace(gasto, **mudancas)
+    banco.atualizar(editado)
+    print(
+        f"Gasto {editado.id} atualizado: {formatar_reais(editado.valor)} em "
+        f"{editado.categoria} ({editado.data:%d/%m/%Y})"
+    )
+
+
 def cmd_remover(args: argparse.Namespace) -> None:
     banco = Banco()
     gasto = banco.buscar(args.id)
@@ -106,6 +135,14 @@ def main() -> None:
 
     p_listar = subparsers.add_parser("listar", help="mostra todos os gastos")
     p_listar.set_defaults(funcao=cmd_listar)
+
+    p_editar = subparsers.add_parser("editar", help="muda dados de um gasto pelo número")
+    p_editar.add_argument("id", type=int, help="o número mostrado em 'listar'")
+    p_editar.add_argument("--valor", type=valor_positivo, help="novo valor")
+    p_editar.add_argument("--categoria", help="nova categoria")
+    p_editar.add_argument("--descricao", help='nova descrição ("" apaga a descrição)')
+    p_editar.add_argument("--data", type=date.fromisoformat, help="nova data (AAAA-MM-DD)")
+    p_editar.set_defaults(funcao=cmd_editar)
 
     p_remover = subparsers.add_parser("remover", help="apaga um gasto pelo número")
     p_remover.add_argument("id", type=int, help="o número mostrado em 'listar'")
