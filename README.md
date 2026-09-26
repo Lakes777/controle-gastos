@@ -1,4 +1,4 @@
-# 💰 Controle de Gastos
+# Controle de Gastos
 
 [![Testes](https://github.com/Lakes777/controle-gastos/actions/workflows/testes.yml/badge.svg)](https://github.com/Lakes777/controle-gastos/actions/workflows/testes.yml)
 
