@@ -4,6 +4,10 @@
 
 Aplicativo de linha de comando para registrar e acompanhar gastos pessoais, feito em Python puro.
 
+![Demonstração do controle de gastos: adicionar, listar, editar, gráficos e exportar para Excel](docs/demo.gif)
+
+> Gravado com dados de exemplo.
+
 ```
 $ python -m gastos resumo --mes 2026-09
 alimentação       R$ 342,80
