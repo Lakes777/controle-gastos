@@ -25,6 +25,7 @@ TOTAL             R$ 960,20
 - **Remover** um gasto pelo número
 - **Resumir** o total por categoria, com filtro por mês
 - **Gráfico** de barras no terminal, por categoria ou por mês
+- **Gastos recorrentes** (aluguel, internet, assinaturas), lançados sozinhos quando o dia chega, inclusive os meses em que o programa não foi aberto
 - **Orçamento** mensal por categoria, com aviso de ATENÇÃO a partir de 80% e de ESTOUROU acima do limite, mostrado também ao adicionar ou editar um gasto
 - **Exportar** para planilha do Excel (`.xlsx`) ou CSV, geral ou de um mês; o `.xlsx` sai com valores em R$, datas de verdade e linha de total com fórmula
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
@@ -67,6 +68,13 @@ python -m gastos grafico                   # por categoria, da maior para a meno
 python -m gastos grafico --mes 2026-09     # só um mês
 python -m gastos grafico --por mes         # evolução mês a mês
 
+# Gastos recorrentes: lançados sozinhos quando o dia chega
+python -m gastos recorrente adicionar 1200 aluguel --dia 5
+python -m gastos recorrente adicionar 39,90 internet --dia 31      # em mês curto, cai no último dia
+python -m gastos recorrente adicionar 55,90 streaming --dia 10 --desde 2026-08   # inclui meses passados
+python -m gastos recorrente                                        # lista, com o próximo lançamento
+python -m gastos recorrente remover 1                              # para de lançar
+
 # Orçamento mensal por categoria
 python -m gastos orcamento definir mercado 500   # cria ou troca o limite
 python -m gastos orcamento                       # situação do mês atual
@@ -101,6 +109,15 @@ uber    ███████████████████████▋
 TOTAL                                        R$ 53,59
 ```
 
+Quando chega o dia de um gasto recorrente, qualquer comando o lança e avisa:
+
+```
+$ python -m gastos listar
+Lançado automaticamente: R$ 1.200,00 em aluguel (05/10/2026)
+  Nº  DATA               VALOR  CATEGORIA     DESCRIÇÃO
+   1  05/10/2026   R$ 1.200,00  aluguel       apartamento
+```
+
 Exemplo de orçamento:
 
 ```
@@ -128,7 +145,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas) e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -141,6 +158,7 @@ controle-gastos/
 │   ├── formatacao.py     # valores em reais (R$ 1.234,50)
 │   ├── grafico.py        # gráfico de barras no terminal
 │   ├── orcamento.py      # situação do orçamento (ok, atenção, estourou)
+│   ├── recorrentes.py    # regras de datas dos gastos recorrentes
 │   └── modelo.py         # a classe Gasto
 └── tests/                # testes com pytest
 ```
@@ -157,7 +175,10 @@ controle-gastos/
 - **Proteção contra CSV injection:** texto que começa com `=`, `+`, `-` ou `@` seria executado como fórmula pelo Excel; ele é exportado com um `'` na frente, e aparece só como texto.
 - **Gráfico com caracteres Unicode, sem matplotlib:** o programa vive no terminal, então o gráfico também. Os blocos `▏▎▍▌▋▊▉█` dão precisão de 1/8 de caractere, e um gasto pequeno sempre aparece com pelo menos `▏`. Categorias vêm da maior para a menor (fica fácil comparar); meses, em ordem cronológica.
 - **Orçamento decidido pelos valores exatos:** R$ 500,01 de R$ 500,00 aparece como 100% depois de arredondado, mas já estourou; por isso o nível é calculado comparando os valores em `Decimal`, não a porcentagem. Os casos de fronteira (79,99%, 80%, 100% e um centavo acima) têm testes.
-- **Tabela nova sem migração manual:** `CREATE TABLE IF NOT EXISTS` cria a tabela de orçamentos em bancos de versões anteriores na primeira vez que são abertos, sem mexer nos gastos.
+- **Gastos recorrentes que nunca se repetem:** cada recorrente guarda o próximo mês pendente (`proximo_mes`), que avança na mesma transação em que o gasto é inserido. Rodar o programa várias vezes no mesmo dia não duplica nada, e um gasto lançado que o usuário apagou não volta.
+- **Nada lançado para trás sem pedir:** um recorrente criado depois do dia dele começa no mês seguinte (o deste mês provavelmente já foi registrado à mão). `--desde` inclui meses passados, mas no máximo 12, para um erro de digitação como `2016` não criar 120 gastos.
+- **Datas testáveis:** a data de hoje vem de uma função `hoje()`, que os testes trocam para simular a passagem do tempo (a véspera, o dia certo, meses sem abrir o programa, dia 31 em mês de 30 e ano bissexto).
+- **Tabelas novas sem migração manual:** `CREATE TABLE IF NOT EXISTS` cria as tabelas de orçamentos e de recorrentes em bancos de versões anteriores na primeira vez que são abertos, sem mexer nos gastos.
 - **`--mes` validado e normalizado:** `2026-9` vira `2026-09` (senão não acharia nada no banco) e `setembro` é recusado com uma mensagem clara.
 - **Biblioteca padrão apenas:** `argparse`, `sqlite3`, `csv`, `zipfile`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas.
 - **Caminho do arquivo como parâmetro:** permite que os testes usem arquivos temporários, isolados dos dados reais.
@@ -170,4 +191,6 @@ controle-gastos/
 - [x] Exportar para planilha do Excel (.xlsx) e CSV
 - [x] Gráficos de gastos por categoria e por mês
 - [x] Orçamento mensal por categoria com alertas
+- [x] Gastos recorrentes lançados automaticamente
+- [ ] Importar o extrato CSV do banco
 - [ ] Versão web com API REST (FastAPI)
