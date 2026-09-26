@@ -1,11 +1,12 @@
 import argparse
 import sys
 import zipfile
+from datetime import date
 from decimal import Decimal
 
 import pytest
 
-from gastos.__main__ import formatar_reais, main, mes_valido, valor_positivo
+from gastos.__main__ import dia_do_mes, formatar_reais, main, mes_valido, valor_positivo
 
 
 @pytest.mark.parametrize(
@@ -356,3 +357,119 @@ def test_editar_avisa_quando_o_orcamento_estoura(tmp_path, monkeypatch, capsys):
     rodar(monkeypatch, "editar", "1", "--valor", "95")
 
     assert "ESTOUROU em R$ 15,00" in capsys.readouterr().out
+
+
+# --- Gastos recorrentes ---
+
+
+def fingir_hoje(monkeypatch, ano, mes, dia):
+    """Faz o programa achar que hoje é outra data."""
+    monkeypatch.setattr("gastos.__main__.hoje", lambda: date(ano, mes, dia))
+
+
+def test_recorrente_comeca_no_mes_que_vem_se_o_dia_ja_passou(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    fingir_hoje(monkeypatch, 2026, 9, 26)
+
+    rodar(monkeypatch, "recorrente", "adicionar", "1200", "aluguel", "--dia", "5")
+
+    saida = capsys.readouterr().out
+    assert "Gasto recorrente 1: R$ 1.200,00 em aluguel, todo dia 5" in saida
+    assert "Primeiro lançamento: 05/10/2026" in saida
+    assert "Lançado" not in saida
+
+
+def test_recorrente_e_lancado_quando_o_dia_chega(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    fingir_hoje(monkeypatch, 2026, 9, 26)
+    rodar(monkeypatch, "recorrente", "adicionar", "1200", "aluguel", "--dia", "5")
+    capsys.readouterr()
+
+    fingir_hoje(monkeypatch, 2026, 10, 4)  # véspera: nada ainda
+    rodar(monkeypatch, "listar")
+    assert "Lançado" not in capsys.readouterr().out
+
+    fingir_hoje(monkeypatch, 2026, 10, 5)  # chegou o dia: qualquer comando lança
+    rodar(monkeypatch, "listar")
+    saida = capsys.readouterr().out
+    assert "Lançado automaticamente: R$ 1.200,00 em aluguel (05/10/2026)" in saida
+    assert "05/10/2026" in saida.split("DESCRIÇÃO")[1]  # e já aparece na listagem
+
+    rodar(monkeypatch, "listar")  # mesmo dia de novo: não repete
+    assert "Lançado" not in capsys.readouterr().out
+
+
+def test_recorrente_lanca_os_meses_que_ficaram_sem_abrir(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    fingir_hoje(monkeypatch, 2026, 9, 26)
+    rodar(monkeypatch, "recorrente", "adicionar", "39,90", "internet", "--dia", "31")
+    capsys.readouterr()
+
+    fingir_hoje(monkeypatch, 2026, 12, 1)
+    rodar(monkeypatch, "resumo")
+
+    saida = capsys.readouterr().out
+    assert saida.count("Lançado automaticamente") == 3
+    for data in ["30/09/2026", "31/10/2026", "30/11/2026"]:  # dia 31 em mês de 30 dias
+        assert data in saida
+
+
+def test_recorrente_desde_lanca_os_meses_passados_na_hora(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    fingir_hoje(monkeypatch, 2026, 9, 26)
+    rodar(monkeypatch, "orcamento", "definir", "streaming", "50")
+    capsys.readouterr()
+
+    rodar(
+        monkeypatch, "recorrente", "adicionar", "55,90", "streaming", "--dia", "10",
+        "--desde", "2026-08",
+    )
+
+    saida = capsys.readouterr().out
+    assert saida.count("Lançado automaticamente") == 2
+    assert "ESTOUROU em R$ 5,90" in saida  # o alerta de orçamento também aparece
+
+
+def test_recorrente_desde_muito_antigo_e_recusado(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    fingir_hoje(monkeypatch, 2026, 9, 26)
+
+    with pytest.raises(SystemExit) as erro:
+        rodar(monkeypatch, "recorrente", "adicionar", "10", "x", "--dia", "5", "--desde", "2016-09")
+
+    assert "no máximo 12 meses" in str(erro.value)
+
+
+def test_recorrente_listar_e_remover(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    fingir_hoje(monkeypatch, 2026, 9, 26)
+    rodar(monkeypatch, "recorrente", "adicionar", "1200", "aluguel", "apartamento", "--dia", "5")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "recorrente")
+    linha = capsys.readouterr().out.splitlines()[1]
+    assert linha.split() == ["1", "5", "R$", "1.200,00", "aluguel", "05/10/2026", "apartamento"]
+
+    rodar(monkeypatch, "recorrente", "remover", "1")
+    assert "removido" in capsys.readouterr().out
+
+    fingir_hoje(monkeypatch, 2026, 10, 5)
+    rodar(monkeypatch, "recorrente")
+    saida = capsys.readouterr().out
+    assert "Nenhum gasto recorrente" in saida
+    assert "Lançado" not in saida
+
+
+def test_recorrente_remover_inexistente_da_erro(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit) as erro:
+        rodar(monkeypatch, "recorrente", "remover", "9")
+
+    assert "Nenhum gasto recorrente com o número 9" in str(erro.value)
+
+
+@pytest.mark.parametrize("texto", ["0", "32", "-1", "cinco", ""])
+def test_dia_do_mes_rejeita_invalidos(texto):
+    with pytest.raises(argparse.ArgumentTypeError):
+        dia_do_mes(texto)

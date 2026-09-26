@@ -12,7 +12,13 @@ from gastos.formatacao import formatar_reais, nome_do_mes
 from gastos.grafico import desenhar, somar_por_categoria, somar_por_mes
 from gastos.modelo import Gasto
 from gastos.orcamento import calcular
+from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
 from gastos.orcamento import desenhar as desenhar_orcamento
+
+
+def hoje() -> date:
+    """Data de hoje. Fica numa função para os testes poderem fingir outra data."""
+    return date.today()
 
 
 def valor_positivo(texto: str) -> Decimal:
@@ -48,6 +54,23 @@ def avisar_orcamento(banco: Banco, gasto: Gasto) -> None:
         f"{formatar_reais(situacao.gasto)} de {formatar_reais(situacao.limite)} "
         f"({situacao.porcentagem}%) - {situacao.aviso()}"
     )
+
+
+def dia_do_mes(texto: str) -> int:
+    """Confere o dia do mês de um gasto recorrente (1 a 31)."""
+    if not texto.isdigit() or not 1 <= int(texto) <= 31:
+        raise argparse.ArgumentTypeError(f"dia inválido: {texto} (use de 1 a 31)")
+    return int(texto)
+
+
+def lancar_recorrentes(banco: Banco) -> None:
+    """Lança os gastos recorrentes cuja data chegou e conta ao usuário o que foi lançado."""
+    for gasto in banco.lancar_recorrentes(hoje()):
+        print(
+            f"Lançado automaticamente: {formatar_reais(gasto.valor)} em {gasto.categoria} "
+            f"({gasto.data:%d/%m/%Y})"
+        )
+        avisar_orcamento(banco, gasto)
 
 
 def cmd_adicionar(args: argparse.Namespace) -> None:
@@ -190,12 +213,51 @@ def cmd_orcamento(args: argparse.Namespace) -> None:
     if not orcamentos:
         print("Nenhum orçamento definido. Crie um com: orcamento definir mercado 500")
         return
-    mes = args.mes or f"{date.today():%Y-%m}"
+    mes = args.mes or f"{hoje():%Y-%m}"
     situacoes = calcular(banco.listar(mes=mes), orcamentos)
     print(f"Orçamento de {nome_do_mes(int(mes[:4]), int(mes[5:]))}")
     print()
     for linha in desenhar_orcamento(situacoes):
         print(linha)
+
+
+def cmd_recorrente(args: argparse.Namespace) -> None:
+    banco = Banco()
+    if args.acao == "adicionar":
+        if args.desde is None:
+            proximo = primeiro_mes(args.dia, hoje())
+        elif meses_entre(args.desde, f"{hoje():%Y-%m}") > MESES_PARA_TRAS:
+            sys.exit(f"O --desde pode voltar no máximo {MESES_PARA_TRAS} meses.")
+        else:
+            proximo = args.desde
+        novo = banco.adicionar_recorrente(
+            Recorrente(args.valor, args.categoria.lower(), args.dia, proximo, args.descricao)
+        )
+        quando = f"todo dia {novo.dia}" + (" (ou o último dia do mês)" if novo.dia > 28 else "")
+        print(
+            f"Gasto recorrente {novo.id}: {formatar_reais(novo.valor)} em {novo.categoria}, "
+            f"{quando}"
+        )
+        print(f"Primeiro lançamento: {novo.proxima_data:%d/%m/%Y}")
+        lancar_recorrentes(banco)  # com --desde no passado, os meses que já passaram entram agora
+        return
+    if args.acao == "remover":
+        if not banco.remover_recorrente(args.id):
+            sys.exit(f"Nenhum gasto recorrente com o número {args.id}.")
+        print(f"Gasto recorrente {args.id} removido (os gastos já lançados continuam)")
+        return
+
+    # Sem ação: lista os recorrentes.
+    recorrentes = banco.listar_recorrentes()
+    if not recorrentes:
+        print("Nenhum gasto recorrente. Crie um com: recorrente adicionar 1200 aluguel --dia 5")
+        return
+    print(f"{'Nº':>4}  {'DIA':>3}  {'VALOR':>12}  {'CATEGORIA':<12}  {'PRÓXIMO':<10}  DESCRIÇÃO")
+    for r in recorrentes:
+        print(
+            f"{r.id:>4}  {r.dia:>3}  {formatar_reais(r.valor):>12}  {r.categoria:<12}  "
+            f"{r.proxima_data:%d/%m/%Y}  {r.descricao}"
+        )
 
 
 def main() -> None:
@@ -211,7 +273,7 @@ def main() -> None:
     p_adicionar.add_argument(
         "--data",
         type=date.fromisoformat,
-        default=date.today(),
+        default=hoje(),
         help="data no formato AAAA-MM-DD (padrão: hoje)",
     )
     p_adicionar.set_defaults(funcao=cmd_adicionar)
@@ -269,7 +331,29 @@ def main() -> None:
     p_remover_orc = acoes.add_parser("remover", help="apaga o orçamento de uma categoria")
     p_remover_orc.add_argument("categoria")
 
+    p_recorrente = subparsers.add_parser(
+        "recorrente", help="gastos que se repetem todo mês (sem ação: lista)"
+    )
+    p_recorrente.set_defaults(funcao=cmd_recorrente, acao=None)
+    acoes_rec = p_recorrente.add_subparsers(dest="acao")
+    p_rec_adicionar = acoes_rec.add_parser("adicionar", help="cria um gasto recorrente")
+    p_rec_adicionar.add_argument("valor", type=valor_positivo, help="ex.: 1200 ou 39,90")
+    p_rec_adicionar.add_argument("categoria", help="ex.: aluguel, internet")
+    p_rec_adicionar.add_argument("descricao", nargs="?", default="", help="opcional")
+    p_rec_adicionar.add_argument(
+        "--dia", type=dia_do_mes, required=True, help="dia do mês em que o gasto acontece"
+    )
+    p_rec_adicionar.add_argument(
+        "--desde",
+        type=mes_valido,
+        help="primeiro mês, AAAA-MM (padrão: a próxima vez que o dia chegar)",
+    )
+    p_rec_remover = acoes_rec.add_parser("remover", help="para de lançar um gasto recorrente")
+    p_rec_remover.add_argument("id", type=int, help="o número mostrado em 'recorrente'")
+
     args = parser.parse_args()
+    # Antes de qualquer comando, lança os gastos recorrentes cuja data já chegou.
+    lancar_recorrentes(Banco())
     args.funcao(args)
 
 
