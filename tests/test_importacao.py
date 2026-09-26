@@ -71,7 +71,7 @@ def test_extrato_da_conta():
 def test_conta_ignora_entradas_pagamento_de_fatura_e_investimento():
     motivos = {i.descricao: i.motivo for i in ler(CONTA_CSV).ignorados}
 
-    assert motivos["Transferência recebida pelo Pix - EMPRESA"] == "entrada de dinheiro"
+    assert motivos["Pix recebido - EMPRESA"] == "entrada de dinheiro"
     assert "pagamento da fatura" in motivos["Pagamento de fatura"]
     assert "investido" in motivos["Aplicação RDB"]
 
@@ -121,6 +121,9 @@ def test_linha_invalida_diz_qual_linha(linha_ruim):
         ("Apple.Com/Bill", "assinaturas"),
         ("Pag*Steam - Parcela 2/3", "lazer"),
         ("Angeloni Super Loja", "mercado"),
+        ("Pagamento de boleto efetuado - PUC PR CAMPUS CURITIBA", "educação"),
+        ("Mensalidade Faculdade Exemplo", "educação"),
+        ("Alura Cursos", "educação"),
         ("Viking Barbearia", "outros"),  # "bar" dentro de Barbearia não vira lazer
         ("Loja qualquer", "outros"),
     ],
@@ -158,3 +161,64 @@ def test_fatura_no_formato_real_com_virgula_e_sinal_separado():
     assert [(i.descricao, i.valor) for i in extrato.ignorados] == [
         ("Pagamento recebido", Decimal("-84.00"))
     ]
+
+
+# Linhas no formato real do extrato da conta (conferido com um arquivo de verdade),
+# com nomes, CPFs e contas inventados.
+EXTRATO_REAL = """Data,Valor,Identificador,Descrição
+01/08/2026,241.50,a1,Transferência recebida pelo Pix - MARIA DA SILVA - •••.121.369-•• - BCO DO BRASIL S.A. (0001) Agência: 1534 Conta: 42098-0
+01/08/2026,-222.39,a2,Compra no débito via NuPay - iFood
+03/08/2026,-1.00,a3,Transferência enviada pelo Pix - JOANA SOUZA - •••.355.749-•• - BANCO INTER (0077) Agência: 1 Conta: 23650327-8
+04/08/2026,-182.00,a4,Transferência enviada pelo Pix - PEDRO SANTOS (Transferência enviada)
+05/08/2026,-2088.75,a5,Pagamento de boleto efetuado - PUC PR CAMPUS CURITIBA
+11/08/2026,50.00,a6,Valor adicionado na conta por cartão de crédito - Valor adicionado para Pix no Crédito
+11/08/2026,-50.00,a7,Transferência enviada pelo Pix - CARLOS LIMA - •••.465.549-•• - BANCO INTER (0077) Agência: 1 Conta: 15922889-1
+28/08/2026,-222.00,a8,Transferência enviada pelo Pix - CARLOS LIMA - •••.465.549-•• - BANCO INTER (0077) Agência: 1 Conta: 15922889-1
+28/08/2026,222.00,a9,Valor adicionado na conta por cartão de crédito - Valor adicionado para Pix no Crédito
+29/08/2026,-80.00,a10,Transferência enviada pelo Pix - CARLOS LIMA - •••.465.549-•• - BANCO INTER (0077) Agência: 1 Conta: 15922889-1
+"""
+
+
+def test_extrato_real_da_conta():
+    extrato = ler(EXTRATO_REAL)
+
+    assert [(g.descricao, g.valor, g.categoria) for g, _ in extrato.itens] == [
+        ("Compra no débito via NuPay - iFood", Decimal("222.39"), "alimentação"),
+        ("Pix enviado - JOANA SOUZA", Decimal("1.00"), "outros"),
+        ("Pix enviado - PEDRO SANTOS", Decimal("182.00"), "outros"),
+        ("Pagamento de boleto efetuado - PUC PR CAMPUS CURITIBA", Decimal("2088.75"), "educação"),
+        ("Pix enviado - CARLOS LIMA", Decimal("80.00"), "outros"),  # sem crédito no dia: é gasto
+    ]
+
+
+def test_pix_no_credito_nao_conta_duas_vezes():
+    # O Pix pago com o cartão aparece na fatura ("Pix no Crédito", às vezes parcelado).
+    # Na conta, ele vem como uma entrada "por cartão de crédito" e um Pix enviado do
+    # mesmo valor no mesmo dia (em qualquer ordem): o Pix enviado é ignorado.
+    pix_no_credito = [i for i in ler(EXTRATO_REAL).ignorados if "Pix no Crédito" in i.motivo]
+    assert [(i.data, i.valor) for i in pix_no_credito] == [
+        (date(2026, 8, 11), Decimal("50.00")),
+        (date(2026, 8, 28), Decimal("222.00")),
+    ]
+
+
+def test_um_credito_so_cobre_um_pix():
+    texto = """Data,Valor,Identificador,Descrição
+11/08/2026,50.00,c1,Valor adicionado na conta por cartão de crédito - Valor adicionado para Pix no Crédito
+11/08/2026,-50.00,c2,Transferência enviada pelo Pix - ANA
+11/08/2026,-50.00,c3,Transferência enviada pelo Pix - ANA
+11/08/2026,-49.99,c4,Transferência enviada pelo Pix - ANA
+"""
+    extrato = ler(texto)
+    assert [(g.valor, o) for g, o in extrato.itens] == [
+        (Decimal("50.00"), "nubank-conta:c3"),
+        (Decimal("49.99"), "nubank-conta:c4"),
+    ]
+
+
+def test_descricao_do_pix_sem_cpf_banco_e_conta():
+    extrato = ler(EXTRATO_REAL)
+    descricoes = [g.descricao for g, _ in extrato.itens] + [i.descricao for i in extrato.ignorados]
+    assert "Pix recebido - MARIA DA SILVA" in descricoes
+    for descricao in descricoes:
+        assert "•••" not in descricao and "Agência" not in descricao and "Conta:" not in descricao

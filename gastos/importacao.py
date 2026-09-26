@@ -4,9 +4,12 @@ O formato é reconhecido pelo cabeçalho:
 - fatura do cartão:  date,title,amount           (2026-09-05; gasto é positivo;
                      o valor pode vir como "41,80" e o negativo como "- 84,00")
 - extrato da conta:  Data,Valor,Identificador,Descrição   (05/09/2026; gasto é negativo)
+
+Os dois formatos foram conferidos com arquivos reais.
 """
 
 import csv
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -26,6 +29,10 @@ REGRAS_DE_CATEGORIA = [
         "apple.com/bill",
     ]),
     ("compras", ["mercado livre", "mercadolivre", "shopee", "amazon", "aliexpress", "magalu", "shein"]),
+    ("educação", [
+        "puc", "faculdade", "universidade", "mensalidade", "escola", "colégio", "colegio",
+        "curso", "alura", "udemy",
+    ]),
     ("mercado", [
         "mercado", "supermerc", "atacad", "assai", "carrefour", "condor", "hortifruti",
         "angeloni", "muffato",
@@ -43,6 +50,27 @@ IGNORAR_NA_CONTA = [
     ("rdb", "dinheiro guardado/investido, não é gasto"),
     ("caixinha", "dinheiro guardado/investido, não é gasto"),
 ]
+
+
+# Pix no Crédito: o Nubank põe o valor na conta (entrada "por cartão de crédito") e manda o
+# Pix na hora. Quem paga é o cartão, e as parcelas aparecem na fatura como "Pix no Crédito".
+CREDITO_PARA_PIX = "valor adicionado na conta por cartão de crédito"
+MOTIVO_PIX_NO_CREDITO = "pago com Pix no Crédito; as parcelas vêm na fatura do cartão"
+
+# "Transferência enviada pelo Pix - NOME - •••.123.456-•• - BANCO (0077) Agência: 1 Conta: 2-3"
+# vira "Pix enviado - NOME" (sem CPF, banco, agência e conta, que só poluem a lista).
+PADRAO_PIX = re.compile(
+    r"^Transferência (enviada|recebida) pelo Pix - (.+?)"
+    r"(?: - •••.*| \(Transferência (?:enviada|recebida)\))?$"
+)
+
+
+def limpar_descricao(descricao: str) -> str:
+    achou = PADRAO_PIX.match(descricao)
+    if not achou:
+        return descricao
+    direcao, nome = achou.groups()
+    return f"Pix {'enviado' if direcao == 'enviada' else 'recebido'} - {nome.strip()}"
 
 
 class FormatoDesconhecido(Exception):
@@ -105,20 +133,38 @@ def _ler_linha_cartao(linha: dict, extrato: Extrato, repeticoes: Counter) -> Non
     extrato.itens.append((Gasto(valor, adivinhar_categoria(descricao), descricao, data), origem))
 
 
-def _ler_linha_conta(linha: dict, extrato: Extrato, repeticoes: Counter) -> None:
+def _ler_linha_conta(linha: dict) -> tuple[date, Decimal, str, str]:
+    """Data, valor, identificador e descrição (já limpa) de uma linha do extrato da conta."""
     data = datetime.strptime(linha["data"].strip(), "%d/%m/%Y").date()
-    descricao = linha["descrição"].strip()
     valor = _valor(linha["valor"])
-    if valor >= 0:
-        extrato.ignorados.append(Ignorado(data, descricao, valor, "entrada de dinheiro"))
-        return
-    motivo = next((m for trecho, m in IGNORAR_NA_CONTA if trecho in descricao.lower()), None)
-    if motivo:
-        extrato.ignorados.append(Ignorado(data, descricao, -valor, motivo))
-        return
-    # O extrato da conta já traz um identificador único por transação.
-    origem = f"nubank-conta:{linha['identificador'].strip()}"
-    extrato.itens.append((Gasto(-valor, adivinhar_categoria(descricao), descricao, data), origem))
+    return data, valor, linha["identificador"].strip(), limpar_descricao(linha["descrição"].strip())
+
+
+def _separar_conta(linhas: list[tuple[date, Decimal, str, str]], extrato: Extrato) -> None:
+    """Decide o que é gasto no extrato da conta.
+
+    Precisa ver o arquivo inteiro: a entrada do Pix no Crédito pode vir antes ou
+    depois do Pix que ela pagou.
+    """
+    creditos_para_pix: Counter = Counter(
+        (data, valor)
+        for data, valor, _, descricao in linhas
+        if valor > 0 and descricao.lower().startswith(CREDITO_PARA_PIX)
+    )
+    for data, valor, identificador, descricao in linhas:
+        if valor >= 0:
+            extrato.ignorados.append(Ignorado(data, descricao, valor, "entrada de dinheiro"))
+            continue
+        motivo = next((m for trecho, m in IGNORAR_NA_CONTA if trecho in descricao.lower()), None)
+        if motivo is None and descricao.startswith("Pix enviado") and creditos_para_pix[(data, -valor)]:
+            creditos_para_pix[(data, -valor)] -= 1  # cada entrada cobre um Pix só
+            motivo = MOTIVO_PIX_NO_CREDITO
+        if motivo:
+            extrato.ignorados.append(Ignorado(data, descricao, -valor, motivo))
+            continue
+        # O extrato da conta já traz um identificador único por transação.
+        gasto = Gasto(-valor, adivinhar_categoria(descricao), descricao, data)
+        extrato.itens.append((gasto, f"nubank-conta:{identificador}"))
 
 
 def ler_nubank(arquivo: TextIO) -> Extrato:
@@ -130,9 +176,9 @@ def ler_nubank(arquivo: TextIO) -> Extrato:
     colunas = set(leitor.fieldnames)
 
     if {"date", "title", "amount"} <= colunas:
-        extrato, ler_linha = Extrato(CARTAO), _ler_linha_cartao
+        extrato = Extrato(CARTAO)
     elif {"data", "valor", "identificador", "descrição"} <= colunas:
-        extrato, ler_linha = Extrato(CONTA), _ler_linha_conta
+        extrato = Extrato(CONTA)
     else:
         raise FormatoDesconhecido(
             "Não parece um CSV do Nubank. O cabeçalho deveria ser "
@@ -141,10 +187,16 @@ def ler_nubank(arquivo: TextIO) -> Extrato:
         )
 
     repeticoes: Counter = Counter()
+    linhas_da_conta = []
     for linha in leitor:
         try:
-            ler_linha(linha, extrato, repeticoes)
+            if extrato.formato == CARTAO:
+                _ler_linha_cartao(linha, extrato, repeticoes)
+            else:
+                linhas_da_conta.append(_ler_linha_conta(linha))
         except (ValueError, AttributeError) as erro:
             # AttributeError: a linha tem menos colunas que o cabeçalho (o campo vem None).
             raise LinhaInvalida(f"linha {leitor.line_num}: {erro}") from erro
+    if extrato.formato == CONTA:
+        _separar_conta(linhas_da_conta, extrato)
     return extrato

@@ -125,7 +125,7 @@ Arquivo reconhecido: extrato da conta do Nubank
 
   + 01/09/2026      R$ 45,90  mercado       Compra no débito - SUPERMERCADO CONDOR
   + 10/09/2026      R$ 18,50  alimentação   Compra no débito - PADARIA BELA VISTA
-  - 02/09/2026   R$ 2.500,00  Transferência recebida pelo Pix - EMPRESA (ignorado: entrada de dinheiro)
+  - 02/09/2026   R$ 2.500,00  Pix recebido - EMPRESA (ignorado: entrada de dinheiro)
   - 05/09/2026   R$ 1.200,00  Pagamento de fatura (ignorado: pagamento da fatura; as compras vêm da fatura do cartão)
 
 2 gasto(s) importado(s), 0 já importado(s) antes, 2 ignorado(s)
@@ -252,7 +252,9 @@ controle-gastos/
 - **Gráfico com caracteres Unicode, sem matplotlib:** o programa vive no terminal, então o gráfico também. Os blocos `▏▎▍▌▋▊▉█` dão precisão de 1/8 de caractere, e um gasto pequeno sempre aparece com pelo menos `▏`. Categorias vêm da maior para a menor (fica fácil comparar); meses, em ordem cronológica.
 - **Orçamento decidido pelos valores exatos:** R$ 500,01 de R$ 500,00 aparece como 100% depois de arredondado, mas já estourou; por isso o nível é calculado comparando os valores em `Decimal`, não a porcentagem. Os casos de fronteira (79,99%, 80%, 100% e um centavo acima) têm testes.
 - **Importar sem duplicar:** cada gasto importado guarda sua `origem` numa coluna com índice `UNIQUE`. No extrato da conta, é o identificador que o próprio Nubank dá; na fatura, que não tem identificador, é data + descrição + valor + um contador, para que duas compras iguais no mesmo dia (dois cafés) continuem sendo duas. Importar o mesmo arquivo de novo não repete nada.
-- **Sem contar o mesmo dinheiro duas vezes:** do extrato da conta são ignorados as entradas, o pagamento da fatura (as compras já vêm da fatura do cartão) e o dinheiro guardado em caixinhas/RDB. Tudo que é ignorado aparece na tela com o motivo.
+- **Sem contar o mesmo dinheiro duas vezes:** do extrato da conta são ignorados as entradas, o pagamento da fatura (as compras já vêm da fatura do cartão), o dinheiro guardado em caixinhas/RDB e o **Pix no Crédito**: o Nubank registra na conta uma entrada "por cartão de crédito" e o Pix do mesmo valor no mesmo dia, mas quem paga é o cartão, e as parcelas (às vezes com juros) aparecem na fatura. Cada entrada cobre um Pix só, e ela pode vir antes ou depois dele no arquivo. Tudo que é ignorado aparece na tela com o motivo.
+- **Conferido com arquivos reais:** a fatura e o extrato da conta foram testados com CSVs reais; os casos que só apareceram neles (valor `"41,80"`, sinal separado `- 84,00`, Pix no Crédito, descrições longas) viraram testes, com nomes e contas inventados.
+- **Descrição do Pix enxuta:** "Transferência enviada pelo Pix - NOME - CPF mascarado - BANCO Agência Conta" vira "Pix enviado - NOME"; os dados bancários de terceiros não são guardados.
 - **Tudo ou nada:** o arquivo inteiro é lido antes de salvar qualquer coisa; se uma linha tiver data ou valor inválido, nada é importado e a mensagem diz qual linha.
 - **Migração com `ALTER TABLE`:** bancos de versões anteriores não têm a coluna `origem`; ao abrir, o programa confere as colunas (`PRAGMA table_info`) e a acrescenta, sem mexer nos gastos.
 - **Gastos recorrentes que nunca se repetem:** cada recorrente guarda o próximo mês pendente (`proximo_mes`), que avança na mesma transação em que o gasto é inserido. Rodar o programa várias vezes no mesmo dia não duplica nada, e um gasto lançado que o usuário apagou não volta.
