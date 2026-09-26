@@ -465,6 +465,9 @@ function iniciar() {
   $("#form-orcamento").addEventListener("submit", definirOrcamento);
   $("#form-recorrente").addEventListener("submit", criarRecorrente);
   recarregar().catch((erro) => mostrarMensagem(erro.message, true));
+  api("/info")
+    .then((info) => ($("#aviso-demo").hidden = !info.demo))
+    .catch(() => {}); // sem o aviso, a página continua funcionando
 }
 
 iniciar();

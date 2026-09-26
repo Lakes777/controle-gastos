@@ -19,6 +19,13 @@
   </header>
 
   <main class="container">
+    <!-- Só aparece na versão online (GET /info diz se é demonstração) -->
+    <p class="demo" id="aviso-demo" hidden>
+      <strong>Modo demonstração:</strong> estes são dados de exemplo, só seus. Pode adicionar,
+      editar e apagar à vontade; ninguém mais vê, e tudo volta ao exemplo depois de um tempo.
+      <a href="https://github.com/Lakes777/controle-gastos" target="_blank" rel="noopener">Ver o código no GitHub</a>
+    </p>
+
     <div class="periodo">
       <label class="periodo__rotulo" for="mes">Período</label>
       <select class="campo" id="mes"></select>

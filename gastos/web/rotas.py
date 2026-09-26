@@ -9,9 +9,10 @@
 
 import io
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
@@ -21,6 +22,7 @@ from gastos.grafico import somar_por_categoria
 from gastos.modelo import Gasto
 from gastos.orcamento import Situacao, calcular
 from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
+from gastos.web.demo import LIMITE_GASTOS, LIMITE_RECORRENTES
 from gastos.web.modelos import (
     PADRAO_MES,
     GastoAtualizacao,
@@ -42,14 +44,22 @@ roteador_recorrentes = APIRouter(prefix="/recorrentes", tags=["recorrentes"])
 FiltroMes = Query(default=None, pattern=PADRAO_MES, description="Só um mês, no formato AAAA-MM")
 
 
+# O servidor online roda no horário UTC; às 22h de Brasília já seria "amanhã" lá.
+FUSO = ZoneInfo("America/Sao_Paulo")
+
+
 def hoje() -> date:
-    """Data de hoje. É uma dependência para os testes poderem fingir outra data."""
-    return date.today()
+    """Data de hoje no Brasil. É uma dependência para os testes poderem fingir outra data."""
+    return datetime.now(FUSO).date()
 
 
-def pegar_banco(request: Request, dia: date = Depends(hoje)) -> Banco:
-    # O banco é guardado no app ao criá-lo (app.state.banco).
-    banco: Banco = request.app.state.banco
+def pegar_banco(request: Request, response: Response, dia: date = Depends(hoje)) -> Banco:
+    demo = request.app.state.demo
+    if demo is None:
+        banco: Banco = request.app.state.banco  # guardado no app ao criá-lo
+    else:
+        # Na demonstração, cada visitante tem o próprio banco (veja demo.py).
+        banco = demo.banco(demo.identificar(request, response), dia)
     # Igual ao terminal: antes de qualquer coisa, lança os recorrentes cuja data chegou.
     banco.lancar_recorrentes(dia)
     return banco
@@ -72,6 +82,15 @@ def buscar_ou_404(banco: Banco, gasto_id: int) -> Gasto:
     return gasto
 
 
+def conferir_limite(request: Request, quantidade: int, limite: int, o_que: str) -> None:
+    """Na demonstração online, impede que alguém encha o servidor."""
+    if request.app.state.demo is not None and quantidade >= limite:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"A demonstração aceita até {limite} {o_que}. Remova algum para adicionar outro.",
+        )
+
+
 def porcentagem(parte: Decimal, total: Decimal) -> int:
     return int((parte / total * 100).to_integral_value(ROUND_HALF_UP)) if total else 0
 
@@ -79,11 +98,17 @@ def porcentagem(parte: Decimal, total: Decimal) -> int:
 # ---------- Gastos ----------
 
 
-@roteador_gastos.post("", status_code=status.HTTP_201_CREATED)
+@roteador_gastos.post(
+    "", status_code=status.HTTP_201_CREATED, responses={403: {"description": "Limite da demo"}}
+)
 def adicionar(
-    novo: GastoNovo, banco: Banco = Depends(pegar_banco), dia: date = Depends(hoje)
+    novo: GastoNovo,
+    request: Request,
+    banco: Banco = Depends(pegar_banco),
+    dia: date = Depends(hoje),
 ) -> GastoSalvo:
     """Registra um gasto. Sem data, vale hoje."""
+    conferir_limite(request, len(banco.listar()), LIMITE_GASTOS, "gastos")
     gasto = Gasto(novo.valor, novo.categoria, novo.descricao, novo.data or dia)
     return para_resposta(banco.adicionar(gasto))
 
@@ -256,11 +281,17 @@ def listar_recorrentes(banco: Banco = Depends(pegar_banco)) -> list[RecorrenteSa
     return [para_recorrente(r) for r in banco.listar_recorrentes()]
 
 
-@roteador_recorrentes.post("", status_code=status.HTTP_201_CREATED)
+@roteador_recorrentes.post(
+    "", status_code=status.HTTP_201_CREATED, responses={403: {"description": "Limite da demo"}}
+)
 def adicionar_recorrente(
-    novo: RecorrenteNovo, banco: Banco = Depends(pegar_banco), dia: date = Depends(hoje)
+    novo: RecorrenteNovo,
+    request: Request,
+    banco: Banco = Depends(pegar_banco),
+    dia: date = Depends(hoje),
 ) -> RecorrenteSalvo:
     """Cria um gasto recorrente. Com "desde" no passado, os meses que já passaram entram agora."""
+    conferir_limite(request, len(banco.listar_recorrentes()), LIMITE_RECORRENTES, "recorrentes")
     if novo.desde is None:
         proximo = primeiro_mes(novo.dia, dia)
     elif meses_entre(novo.desde, f"{dia:%Y-%m}") > MESES_PARA_TRAS:

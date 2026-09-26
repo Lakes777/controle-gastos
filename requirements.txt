@@ -1,3 +1,5 @@
 # Só a versão web precisa disto; a linha de comando usa apenas o Python.
 fastapi>=0.115,<1
 uvicorn>=0.30,<1
+# Fuso horário do Brasil em qualquer servidor (alguns não trazem a base de fusos)
+tzdata
