@@ -182,7 +182,17 @@ Depois, abra http://127.0.0.1:8000 no navegador. A página usa o mesmo banco da 
 | `GET /exportar?formato=xlsx` | baixa a planilha (ou `csv`) |
 | `GET /meses`, `GET /categorias` | meses com gastos e categorias já usadas |
 
-Variáveis de ambiente opcionais: `GASTOS_BANCO` (arquivo do banco), `HOST` e `PORT`.
+Variáveis de ambiente opcionais: `GASTOS_BANCO` (arquivo do banco), `GASTOS_DEMO=1` (modo demonstração), `HOST` e `PORT`.
+
+### Modo demonstração (versão online)
+
+Online, o app roda em modo demonstração: **cada visitante recebe uma cópia própria dos dados de exemplo**, e pode adicionar, editar e apagar sem que ninguém mais veja. Os dados de exemplo são sempre dos últimos 3 meses (relativos a hoje), com orçamentos e gastos recorrentes já lançados. Os bancos dos visitantes ficam na pasta temporária do servidor e são apagados depois de um dia.
+
+O arquivo `app.py` da raiz é a entrada da Vercel. Para testar a demonstração no seu computador:
+
+```bash
+GASTOS_DEMO=1 python -m gastos.web
+```
 
 ## Testes
 
@@ -193,7 +203,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa). Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa) e o modo demonstração (visitantes isolados, cookie inválido, limites e limpeza dos bancos antigos). Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -212,9 +222,12 @@ controle-gastos/
 │   └── web/
 │       ├── __main__.py   # python -m gastos.web (servidor uvicorn)
 │       ├── app.py        # cria o app FastAPI e serve a página
+│       ├── demo.py       # modo demonstração: um banco de exemplo por visitante
 │       ├── modelos.py    # o que a API recebe e devolve (Pydantic)
 │       ├── rotas.py      # as rotas da API
 │       └── static/       # a página: index.html, estilo.css e app.js
+├── app.py                # entrada da Vercel (modo demonstração)
+├── vercel.json           # o que não vai para o servidor (testes, docs)
 └── tests/                # testes com pytest
 ```
 
@@ -242,6 +255,8 @@ controle-gastos/
 - **Web por cima do mesmo código:** a API não repete regra nenhuma; ela chama o mesmo `Banco`, o mesmo cálculo de orçamento e a mesma exportação da linha de comando. Por isso as duas interfaces sempre concordam.
 - **Dinheiro como texto no JSON:** a API recebe e devolve valores como `"45.90"`, não `45.9`. Um número no JSON vira `float` no JavaScript e traria de volta os erros de centavos. O Pydantic recusa zero, negativo, `NaN` e mais de 2 casas decimais.
 - **Recorrentes lançados a cada pedido:** igual ao terminal, antes de responder, a API lança os recorrentes cuja data chegou. A data de hoje é uma dependência do FastAPI, que os testes trocam por uma data fixa.
+- **Um banco por visitante na demonstração:** um cookie com um número aleatório (`uuid4`) aponta para um SQLite só daquele visitante. O cookie é `HttpOnly` e o número é conferido por uma expressão regular antes de virar nome de arquivo, então um cookie como `../../etc/passwd` é ignorado. O banco novo é preenchido num arquivo provisório e renomeado no fim (`os.replace` é atômico), para dois pedidos simultâneos nunca verem um banco pela metade. Há limite de gastos e de recorrentes por visitante e de bancos no servidor.
+- **Data de hoje no fuso do Brasil:** o servidor online roda em UTC; sem o fuso `America/Sao_Paulo`, às 22h de Brasília ele já estaria no dia seguinte.
 - **Sem `innerHTML` no front:** tudo que vem da API entra na página com `textContent`, então uma descrição como `<script>` aparece como texto e não é executada (proteção contra XSS).
 - **Linha de comando só com a biblioteca padrão:** `argparse`, `sqlite3`, `csv`, `zipfile`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas. FastAPI e uvicorn são usados só pela versão web.
 - **Caminho do arquivo como parâmetro:** permite que os testes usem arquivos temporários, isolados dos dados reais.
