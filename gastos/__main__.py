@@ -2,13 +2,14 @@
 
 import argparse
 import sys
-from collections import defaultdict
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from gastos.armazenamento import Banco
 from gastos.exportacao import escrever_csv, escrever_xlsx
+from gastos.formatacao import formatar_reais
+from gastos.grafico import desenhar, somar_por_categoria, somar_por_mes
 from gastos.modelo import Gasto
 
 
@@ -23,13 +24,6 @@ def valor_positivo(texto: str) -> Decimal:
     if valor <= 0:
         raise argparse.ArgumentTypeError("o valor precisa ser maior que zero")
     return valor
-
-
-def formatar_reais(valor: Decimal) -> str:
-    """Formata 1234.5 como 'R$ 1.234,50'."""
-    texto = f"{valor:,.2f}"
-    texto = texto.replace(",", "_").replace(".", ",").replace("_", ".")
-    return f"R$ {texto}"
 
 
 def cmd_adicionar(args: argparse.Namespace) -> None:
@@ -124,14 +118,30 @@ def cmd_resumo(args: argparse.Namespace) -> None:
         print("Nenhum gasto encontrado.")
         return
 
-    por_categoria: dict[str, Decimal] = defaultdict(Decimal)
-    for gasto in gastos:
-        por_categoria[gasto.categoria] += gasto.valor
-
-    for categoria, total in sorted(por_categoria.items()):
+    por_categoria = sorted(somar_por_categoria(gastos))  # aqui, em ordem alfabética
+    for categoria, total in por_categoria:
         print(f"{categoria:<12}  {formatar_reais(total):>12}")
     print("-" * 26)
-    print(f"{'TOTAL':<12}  {formatar_reais(sum(por_categoria.values())):>12}")
+    print(f"{'TOTAL':<12}  {formatar_reais(sum(total for _, total in por_categoria)):>12}")
+
+
+def cmd_grafico(args: argparse.Namespace) -> None:
+    gastos = Banco().listar(mes=args.mes)
+    if not gastos:
+        print("Nenhum gasto encontrado.")
+        return
+
+    if args.por == "mes":
+        titulo, totais = "Gastos por mês", somar_por_mes(gastos)
+    else:
+        titulo, totais = "Gastos por categoria", somar_por_categoria(gastos)
+    if args.mes:
+        titulo += f" ({args.mes})"
+
+    print(titulo)
+    print()
+    for linha in desenhar(totais):
+        print(linha)
 
 
 def main() -> None:
@@ -180,6 +190,16 @@ def main() -> None:
     p_resumo = subparsers.add_parser("resumo", help="total por categoria")
     p_resumo.add_argument("--mes", help="filtra por mês no formato AAAA-MM")
     p_resumo.set_defaults(funcao=cmd_resumo)
+
+    p_grafico = subparsers.add_parser("grafico", help="gráfico de barras dos gastos")
+    p_grafico.add_argument(
+        "--por",
+        choices=["categoria", "mes"],
+        default="categoria",
+        help="agrupar por categoria (padrão) ou por mês",
+    )
+    p_grafico.add_argument("--mes", help="só um mês, no formato AAAA-MM")
+    p_grafico.set_defaults(funcao=cmd_grafico)
 
     args = parser.parse_args()
     args.funcao(args)

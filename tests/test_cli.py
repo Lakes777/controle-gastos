@@ -218,3 +218,32 @@ def test_exportar_xlsx_nao_sobrescreve_sem_pedir(tmp_path, monkeypatch):
         rodar(monkeypatch, "exportar", "gastos.xlsx")
 
     assert (tmp_path / "gastos.xlsx").read_bytes() == b"planilha importante"
+
+
+def test_grafico_por_categoria_e_por_mes(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "adicionar", "30", "lanche", "--data", "2026-09-23")
+    rodar(monkeypatch, "adicionar", "10", "uber", "--data", "2026-08-05")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "grafico")
+    saida = capsys.readouterr().out
+    assert "Gastos por categoria" in saida
+    assert "lanche" in saida and "█" in saida
+
+    rodar(monkeypatch, "grafico", "--por", "mes")
+    saida = capsys.readouterr().out
+    assert saida.index("ago/2026") < saida.index("set/2026")
+
+    rodar(monkeypatch, "grafico", "--mes", "2026-08")
+    saida = capsys.readouterr().out
+    assert "(2026-08)" in saida
+    assert "uber" in saida and "lanche" not in saida
+
+
+def test_grafico_sem_gastos(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    rodar(monkeypatch, "grafico")
+
+    assert "Nenhum gasto encontrado" in capsys.readouterr().out

@@ -20,6 +20,7 @@ TOTAL             R$ 960,20
 - **Editar** um gasto pelo número, mudando só os campos informados
 - **Remover** um gasto pelo número
 - **Resumir** o total por categoria, com filtro por mês
+- **Gráfico** de barras no terminal, por categoria ou por mês
 - **Exportar** para planilha do Excel (`.xlsx`) ou CSV, geral ou de um mês; o `.xlsx` sai com valores em R$, datas de verdade e linha de total com fórmula
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
@@ -56,6 +57,11 @@ python -m gastos remover 2
 python -m gastos resumo
 python -m gastos resumo --mes 2026-09
 
+# Gráfico de barras no terminal
+python -m gastos grafico                   # por categoria, da maior para a menor
+python -m gastos grafico --mes 2026-09     # só um mês
+python -m gastos grafico --por mes         # evolução mês a mês
+
 # Exportar (o formato vem da extensão); não sobrescreve arquivo existente sem pedir
 python -m gastos exportar gastos.xlsx                   # planilha do Excel
 python -m gastos exportar setembro.xlsx --mes 2026-09
@@ -74,6 +80,16 @@ Exemplo de listagem:
    1  23/09/2026      R$ 45,90  mercado       compras da semana
 ```
 
+Exemplo de gráfico:
+
+```
+Gastos por categoria
+
+lanche  ██████████████████████████████       R$ 30,00   56%
+uber    ███████████████████████▋             R$ 23,59   44%
+TOTAL                                        R$ 53,59
+```
+
 ## Testes
 
 ```bash
@@ -83,7 +99,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -93,6 +109,8 @@ controle-gastos/
 │   ├── __main__.py       # linha de comando (argparse)
 │   ├── armazenamento.py  # banco SQLite (sqlite3, SQL à mão)
 │   ├── exportacao.py     # exportar para .xlsx e CSV
+│   ├── formatacao.py     # valores em reais (R$ 1.234,50)
+│   ├── grafico.py        # gráfico de barras no terminal
 │   └── modelo.py         # a classe Gasto
 └── tests/                # testes com pytest
 ```
@@ -107,6 +125,7 @@ controle-gastos/
 - **CSV no formato do Excel brasileiro:** colunas separadas por `;` (a vírgula já é usada nos centavos) e arquivo em `utf-8-sig`, cuja marca inicial (BOM) faz o Excel mostrar os acentos certos.
 - **`.xlsx` escrito à mão, sem bibliotecas:** um `.xlsx` é um `.zip` com arquivos XML dentro, então `zipfile` e `xml` da biblioteca padrão bastam. O CSV depende das configurações regionais de quem abre (num Windows em inglês, o Excel separa as colunas na vírgula e quebra `30,00` ao meio); no `.xlsx`, o valor é guardado como número e a data como data, e a planilha abre certa em qualquer idioma. O arquivo gerado foi conferido abrindo no Excel real.
 - **Proteção contra CSV injection:** texto que começa com `=`, `+`, `-` ou `@` seria executado como fórmula pelo Excel; ele é exportado com um `'` na frente, e aparece só como texto.
+- **Gráfico com caracteres Unicode, sem matplotlib:** o programa vive no terminal, então o gráfico também. Os blocos `▏▎▍▌▋▊▉█` dão precisão de 1/8 de caractere, e um gasto pequeno sempre aparece com pelo menos `▏`. Categorias vêm da maior para a menor (fica fácil comparar); meses, em ordem cronológica.
 - **Biblioteca padrão apenas:** `argparse`, `sqlite3`, `csv`, `zipfile`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas.
 - **Caminho do arquivo como parâmetro:** permite que os testes usem arquivos temporários, isolados dos dados reais.
 - **Dados fora do Git:** a pasta `dados/` está no `.gitignore`, então informações financeiras pessoais nunca vão para o repositório.
@@ -116,5 +135,5 @@ controle-gastos/
 - [x] Editar e remover gastos
 - [x] Migrar o armazenamento para SQLite
 - [x] Exportar para planilha do Excel (.xlsx) e CSV
-- [ ] Gráficos de gastos por mês
+- [x] Gráficos de gastos por categoria e por mês
 - [ ] Versão web com API REST (FastAPI)
