@@ -62,6 +62,43 @@
           <datalist id="lista-categorias"></datalist>
         </section>
 
+        <section class="bloco" aria-labelledby="titulo-importar">
+          <h2 class="bloco__titulo" id="titulo-importar">Importar do Nubank</h2>
+          <p class="bloco__nota">
+            CSV da fatura do cartão ou do extrato da conta. Você revisa tudo antes de salvar,
+            e o mesmo gasto nunca entra duas vezes.
+            <a href="/importar/exemplo.csv" download>Baixar um CSV de exemplo</a>
+          </p>
+          <label class="botao botao--fantasma arquivo" id="rotulo-arquivo">
+            Escolher arquivo .csv
+            <input type="file" id="arquivo-csv" accept=".csv,text/csv" class="invisivel">
+          </label>
+
+          <!-- Prévia: preenchida pelo app.js com POST /importar/previa -->
+          <div class="previa" id="previa" hidden>
+            <p class="previa__resumo" id="previa-resumo"></p>
+            <table class="tabela tabela--previa" id="previa-tabela">
+              <thead>
+                <tr>
+                  <th scope="col">Data</th>
+                  <th scope="col">Descrição</th>
+                  <th scope="col">Categoria</th>
+                  <th scope="col" class="tabela__valor">Valor</th>
+                </tr>
+              </thead>
+              <tbody id="previa-linhas"></tbody>
+            </table>
+            <details class="previa__ignorados" id="previa-ignorados" hidden>
+              <summary id="previa-ignorados-titulo"></summary>
+              <ul id="previa-ignorados-lista"></ul>
+            </details>
+            <div class="formulario__acoes">
+              <button class="botao" type="button" id="botao-importar">Importar</button>
+              <button class="botao botao--fantasma" type="button" id="botao-cancelar-importacao">Cancelar</button>
+            </div>
+          </div>
+        </section>
+
         <section class="bloco" aria-labelledby="titulo-lista">
           <div class="bloco__cabecalho">
             <h2 class="bloco__titulo" id="titulo-lista">Gastos</h2>

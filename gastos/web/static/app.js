@@ -431,6 +431,122 @@ async function removerRecorrente(r) {
   }
 }
 
+// ---------- Importação do Nubank ----------
+
+const importacao = { novos: [], camposCategoria: [] };
+
+async function lerArquivo(evento) {
+  const arquivo = evento.target.files[0];
+  evento.target.value = ""; // permite escolher o mesmo arquivo de novo depois
+  if (!arquivo) return;
+  if (arquivo.size > 2_000_000) {
+    return mostrarMensagem("Arquivo grande demais (o máximo é 2 MB).", true);
+  }
+  try {
+    // O arquivo vai como veio (bytes): quem confere a codificação (UTF-8) é a API.
+    const previa = await api("/importar/previa", {
+      method: "POST",
+      headers: { "Content-Type": "text/csv" },
+      body: arquivo,
+    });
+    mostrarPrevia(previa, arquivo.name);
+  } catch (erro) {
+    esconderPrevia();
+    mostrarMensagem(erro.message, true);
+  }
+}
+
+function plural(n, singular, varios) {
+  return `${n} ${n === 1 ? singular : varios}`;
+}
+
+function mostrarPrevia(previa, nomeDoArquivo) {
+  importacao.novos = previa.novos;
+  importacao.camposCategoria = previa.novos.map((item) => {
+    const campo = el("input", {
+      class: "campo campo--pequeno", list: "lista-categorias", maxlength: "40",
+      "aria-label": `Categoria de ${item.descricao || "gasto"}`,
+    });
+    campo.value = item.categoria;
+    return campo;
+  });
+
+  const partes = [
+    plural(previa.novos.length, "gasto novo", "gastos novos"),
+    plural(previa.repetidos, "já importado antes", "já importados antes"),
+    plural(previa.ignorados.length, "ignorado", "ignorados"),
+  ];
+  $("#previa-resumo").replaceChildren(
+    el("strong", { text: previa.formato[0].toUpperCase() + previa.formato.slice(1) }),
+    ` (${nomeDoArquivo}): ${partes.join(" · ")}.`,
+    previa.novos.length ? " Confira as categorias antes de importar." : " Nada novo para importar.",
+  );
+
+  $("#previa-tabela").hidden = previa.novos.length === 0;
+  $("#previa-linhas").replaceChildren(
+    ...previa.novos.map((item, i) =>
+      el("tr", {},
+        el("td", { class: "tabela__data", text: formatarData(item.data) }),
+        el("td", { class: "tabela__descricao", text: item.descricao || "—" }),
+        el("td", { class: "tabela__categoria" }, importacao.camposCategoria[i]),
+        el("td", { class: "tabela__valor", text: formatarReais(item.valor) }),
+      ),
+    ),
+  );
+
+  $("#previa-ignorados").hidden = previa.ignorados.length === 0;
+  $("#previa-ignorados-titulo").textContent =
+    `${plural(previa.ignorados.length, "linha ignorada", "linhas ignoradas")} (não são gastos)`;
+  $("#previa-ignorados-lista").replaceChildren(
+    ...previa.ignorados.map((i) =>
+      el("li", {
+        text: `${formatarData(i.data)} · ${i.descricao} · ` +
+          `${formatarReais(Math.abs(Number(i.valor)))}: ${i.motivo}`,
+      }),
+    ),
+  );
+
+  const botao = $("#botao-importar");
+  botao.disabled = previa.novos.length === 0;
+  botao.textContent = previa.novos.length
+    ? `Importar ${plural(previa.novos.length, "gasto", "gastos")}`
+    : "Importar";
+  $("#previa").hidden = false;
+  $("#previa").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function esconderPrevia() {
+  importacao.novos = [];
+  importacao.camposCategoria = [];
+  $("#previa").hidden = true;
+}
+
+async function importarRevisados() {
+  const itens = importacao.novos.map((item, i) => ({
+    ...item,
+    categoria: importacao.camposCategoria[i].value.trim(),
+  }));
+  importacao.camposCategoria.forEach((campo) => marcarInvalido(campo, !campo.value.trim()));
+  if (itens.some((item) => !item.categoria)) {
+    return mostrarMensagem("Preencha a categoria de todos os gastos.", true);
+  }
+  const botao = $("#botao-importar");
+  botao.disabled = true;
+  try {
+    const resultado = await api("/importar", { method: "POST", body: JSON.stringify({ itens }) });
+    esconderPrevia();
+    // Mostra o mês mais recente do extrato (senão os gastos importados poderiam "sumir").
+    if (estado.mes) estado.mes = itens.map((item) => item.data.slice(0, 7)).sort().at(-1);
+    await recarregar();
+    const pulados = resultado.repetidos
+      ? ` (${plural(resultado.repetidos, "já estava", "já estavam")} na lista)` : "";
+    mostrarMensagem(`${plural(resultado.importados, "gasto importado", "gastos importados")}${pulados}.`);
+  } catch (erro) {
+    botao.disabled = false;
+    mostrarMensagem(erro.message, true);
+  }
+}
+
 // ---------- Carregar tudo ----------
 
 async function recarregar() {
@@ -464,6 +580,9 @@ function iniciar() {
   $("#botao-cancelar").addEventListener("click", cancelarEdicao);
   $("#form-orcamento").addEventListener("submit", definirOrcamento);
   $("#form-recorrente").addEventListener("submit", criarRecorrente);
+  $("#arquivo-csv").addEventListener("change", lerArquivo);
+  $("#botao-importar").addEventListener("click", importarRevisados);
+  $("#botao-cancelar-importacao").addEventListener("click", esconderPrevia);
   recarregar().catch((erro) => mostrarMensagem(erro.message, true));
   api("/info")
     .then((info) => ($("#aviso-demo").hidden = !info.demo))

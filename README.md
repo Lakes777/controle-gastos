@@ -33,7 +33,7 @@ TOTAL             R$ 960,20
 - **Exportar** para planilha do Excel (`.xlsx`) ou CSV, geral ou de um mês; o `.xlsx` sai com valores em R$, datas de verdade e linha de total com fórmula
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
-- **Versão web** (FastAPI + HTML/CSS/JS): formulário, lista com editar/remover, gráfico por categoria, orçamento, recorrentes e download do .xlsx, usando o mesmo banco do terminal
+- **Versão web** (FastAPI + HTML/CSS/JS): formulário, lista com editar/remover, gráfico por categoria, orçamento, recorrentes, importação do Nubank com prévia e download do .xlsx, usando o mesmo banco do terminal
 - Dados salvos localmente num banco SQLite, fora do controle de versão
 - Quem usava a versão antiga (JSON) tem os gastos importados automaticamente
 
@@ -182,6 +182,9 @@ Depois, abra http://127.0.0.1:8000 no navegador. A página usa o mesmo banco da 
 | `PUT/DELETE /orcamentos/{categoria}` | define ou apaga o limite mensal |
 | `GET/POST /recorrentes`, `DELETE /recorrentes/{id}` | gastos que se repetem todo mês |
 | `GET /exportar?formato=xlsx` | baixa a planilha (ou `csv`) |
+| `POST /importar/previa` | recebe o CSV do Nubank (texto) e mostra o que entraria, sem salvar |
+| `POST /importar` | salva os gastos revisados na prévia, sem repetir os já importados |
+| `GET /importar/exemplo.csv` | uma fatura de exemplo, com datas recentes, para testar |
 | `GET /meses`, `GET /categorias` | meses com gastos e categorias já usadas |
 
 Variáveis de ambiente opcionais: `GASTOS_BANCO` (arquivo do banco), `GASTOS_DEMO=1` (modo demonstração), `HOST` e `PORT`.
@@ -266,6 +269,8 @@ controle-gastos/
 - **`NUMERIC(12, 2)` no Postgres:** diferente do SQLite, o Postgres tem um tipo decimal exato para dinheiro; o valor volta como `Decimal` e o banco também recusa valor negativo (`CHECK`).
 - **Contas antigas apagadas em cascata:** `ON DELETE CASCADE` apaga gastos, orçamentos e recorrentes junto com a conta vencida.
 - **Data de hoje no fuso do Brasil:** o servidor online roda em UTC; sem o fuso `America/Sao_Paulo`, às 22h de Brasília ele já estaria no dia seguinte.
+- **Importação em duas etapas:** a prévia só lê o arquivo e mostra o que entraria, com a categoria adivinhada; a página deixa corrigir cada categoria, e só então os itens revisados são salvos (numa transação, pulando origens já importadas). O arquivo vai como texto no corpo do pedido, então não é preciso upload com formulário (multipart) nem biblioteca a mais; a página envia os bytes do arquivo como vieram, e a API confere se é UTF-8 e recusa arquivos acima de 2 MB.
+- **Migração no Postgres:** o banco online já existia sem a coluna `origem`; `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` a acrescenta na primeira vez, sem mexer nos gastos, e há um teste que parte de um banco no formato antigo.
 - **Sem `innerHTML` no front:** tudo que vem da API entra na página com `textContent`, então uma descrição como `<script>` aparece como texto e não é executada (proteção contra XSS).
 - **Linha de comando só com a biblioteca padrão:** `argparse`, `sqlite3`, `csv`, `zipfile`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas. FastAPI e uvicorn são usados só pela versão web.
 - **Caminho do arquivo como parâmetro:** permite que os testes usem arquivos temporários, isolados dos dados reais.
@@ -283,4 +288,4 @@ controle-gastos/
 - [ ] Importar extratos de outros bancos (Inter, Itaú) e OFX
 - [x] Versão web com API REST (FastAPI)
 - [ ] Colocar a versão web no ar (Vercel)
-- [ ] Importar o CSV do Nubank pela página
+- [x] Importar o CSV do Nubank pela página, com prévia e categorias editáveis

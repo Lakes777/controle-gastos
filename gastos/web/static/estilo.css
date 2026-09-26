@@ -283,6 +283,11 @@ body {
   color: var(--text);
 }
 
+.botao:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .botao--pequeno {
   font-size: 0.85rem;
   padding: 6px 12px;
@@ -327,6 +332,64 @@ body {
 .exportar__rotulo {
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+/* ---------- Importação ---------- */
+.bloco__nota a {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.arquivo {
+  position: relative;
+}
+
+/* Mostra o foco do teclado no botão, já que o <input type="file"> fica escondido */
+.arquivo:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.previa {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.previa__resumo {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.previa__resumo strong {
+  color: var(--text);
+}
+
+.tabela--previa .campo {
+  width: 100%;
+  max-width: 160px;
+}
+
+.previa__ignorados {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.previa__ignorados summary {
+  cursor: pointer;
+}
+
+.previa__ignorados ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.previa .formulario__acoes {
+  margin-top: 16px;
 }
 
 /* ---------- Tabela de gastos ---------- */
@@ -582,4 +645,6 @@ body {
   .tabela__data { grid-column: 1; grid-row: 2; font-size: 0.85rem; }
   .tabela__categoria { grid-column: 1; grid-row: 3; }
   .tabela__acoes { grid-column: 2; grid-row: 2 / 4; align-self: end; }
+  .tabela--previa .tabela__categoria { grid-row: 3; }
+  .tabela--previa .campo { max-width: none; }
 }
