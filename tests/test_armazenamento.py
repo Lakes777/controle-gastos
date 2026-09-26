@@ -180,3 +180,47 @@ def test_atualizar_id_inexistente_devolve_false(tmp_path):
 
     assert banco.atualizar(Gasto(Decimal("1"), "a", id=999)) is False
     assert banco.listar() == []
+
+
+# --- Orçamentos ---
+
+
+def test_definir_trocar_e_listar_orcamentos(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+
+    banco.definir_orcamento("mercado", Decimal("500"))
+    banco.definir_orcamento("lazer", Decimal("80"))
+    banco.definir_orcamento("mercado", Decimal("450.50"))  # troca, não duplica
+
+    assert banco.listar_orcamentos() == {"lazer": Decimal("80"), "mercado": Decimal("450.50")}
+
+
+def test_remover_orcamento(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+    banco.definir_orcamento("mercado", Decimal("500"))
+
+    assert banco.remover_orcamento("mercado") is True
+    assert banco.remover_orcamento("mercado") is False
+    assert banco.listar_orcamentos() == {}
+
+
+def test_banco_de_versao_antiga_ganha_a_tabela_de_orcamentos(tmp_path):
+    import sqlite3
+
+    caminho = tmp_path / "gastos.db"
+    # Banco como a versão anterior deixava: só a tabela de gastos.
+    with sqlite3.connect(caminho) as conexao:
+        conexao.execute(
+            "CREATE TABLE gastos (id INTEGER PRIMARY KEY AUTOINCREMENT, valor TEXT NOT NULL, "
+            "categoria TEXT NOT NULL, descricao TEXT NOT NULL DEFAULT '', data TEXT NOT NULL)"
+        )
+        conexao.execute(
+            "INSERT INTO gastos (valor, categoria, data) VALUES ('30', 'lanche', '2026-09-23')"
+        )
+    conexao.close()
+
+    banco = Banco(caminho)
+    banco.definir_orcamento("lanche", Decimal("100"))
+
+    assert len(banco.listar()) == 1  # o gasto antigo continua lá
+    assert banco.listar_orcamentos() == {"lanche": Decimal("100")}

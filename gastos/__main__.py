@@ -8,9 +8,11 @@ from decimal import Decimal, InvalidOperation
 
 from gastos.armazenamento import Banco
 from gastos.exportacao import escrever_csv, escrever_xlsx
-from gastos.formatacao import formatar_reais
+from gastos.formatacao import formatar_reais, nome_do_mes
 from gastos.grafico import desenhar, somar_por_categoria, somar_por_mes
 from gastos.modelo import Gasto
+from gastos.orcamento import calcular
+from gastos.orcamento import desenhar as desenhar_orcamento
 
 
 def valor_positivo(texto: str) -> Decimal:
@@ -153,6 +155,33 @@ def cmd_grafico(args: argparse.Namespace) -> None:
         print(linha)
 
 
+def cmd_orcamento(args: argparse.Namespace) -> None:
+    banco = Banco()
+    if args.acao == "definir":
+        categoria = args.categoria.lower()
+        banco.definir_orcamento(categoria, args.limite)
+        print(f"Orçamento de {categoria}: {formatar_reais(args.limite)} por mês")
+        return
+    if args.acao == "remover":
+        categoria = args.categoria.lower()
+        if not banco.remover_orcamento(categoria):
+            sys.exit(f"A categoria {categoria} não tem orçamento.")
+        print(f"Orçamento de {categoria} removido")
+        return
+
+    # Sem ação: mostra a situação do mês.
+    orcamentos = banco.listar_orcamentos()
+    if not orcamentos:
+        print("Nenhum orçamento definido. Crie um com: orcamento definir mercado 500")
+        return
+    mes = args.mes or f"{date.today():%Y-%m}"
+    situacoes = calcular(banco.listar(mes=mes), orcamentos)
+    print(f"Orçamento de {nome_do_mes(int(mes[:4]), int(mes[5:]))}")
+    print()
+    for linha in desenhar_orcamento(situacoes):
+        print(linha)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="gastos", description="Controle de gastos pessoais no terminal."
@@ -209,6 +238,20 @@ def main() -> None:
     )
     p_grafico.add_argument("--mes", type=mes_valido, help="só um mês, no formato AAAA-MM")
     p_grafico.set_defaults(funcao=cmd_grafico)
+
+    p_orcamento = subparsers.add_parser(
+        "orcamento", help="limite mensal por categoria (sem ação: mostra a situação do mês)"
+    )
+    p_orcamento.add_argument(
+        "--mes", type=mes_valido, help="mês a mostrar, no formato AAAA-MM (padrão: o atual)"
+    )
+    p_orcamento.set_defaults(funcao=cmd_orcamento, acao=None)
+    acoes = p_orcamento.add_subparsers(dest="acao")
+    p_definir = acoes.add_parser("definir", help="cria ou troca o limite de uma categoria")
+    p_definir.add_argument("categoria", help="ex.: mercado")
+    p_definir.add_argument("limite", type=valor_positivo, help="limite por mês, ex.: 500")
+    p_remover_orc = acoes.add_parser("remover", help="apaga o orçamento de uma categoria")
+    p_remover_orc.add_argument("categoria")
 
     args = parser.parse_args()
     args.funcao(args)

@@ -4,14 +4,11 @@ from collections import defaultdict
 from collections.abc import Iterable
 from decimal import ROUND_HALF_UP, Decimal
 
-from gastos.formatacao import formatar_reais
+from gastos.formatacao import formatar_reais, nome_do_mes
 from gastos.modelo import Gasto
 
 # Blocos de 1/8 a 8/8 de largura: a barra fica com precisão de 1/8 de caractere.
 BLOCOS = " ▏▎▍▌▋▊▉█"
-
-MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
-
 
 def somar_por_categoria(gastos: Iterable[Gasto]) -> list[tuple[str, Decimal]]:
     """Total de cada categoria, da maior para a menor (empate: ordem alfabética)."""
@@ -26,7 +23,7 @@ def somar_por_mes(gastos: Iterable[Gasto]) -> list[tuple[str, Decimal]]:
     totais: dict[tuple[int, int], Decimal] = defaultdict(Decimal)
     for gasto in gastos:
         totais[(gasto.data.year, gasto.data.month)] += gasto.valor
-    return [(f"{MESES[mes - 1]}/{ano}", total) for (ano, mes), total in sorted(totais.items())]
+    return [(nome_do_mes(ano, mes), total) for (ano, mes), total in sorted(totais.items())]
 
 
 def barra(valor: Decimal, maximo: Decimal, largura: int) -> str:

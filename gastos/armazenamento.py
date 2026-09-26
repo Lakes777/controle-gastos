@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS gastos (
 )
 """
 
+CRIAR_TABELA_ORCAMENTOS = """
+CREATE TABLE IF NOT EXISTS orcamentos (
+    categoria TEXT PRIMARY KEY,  -- cada categoria tem no máximo um orçamento
+    limite    TEXT NOT NULL      -- limite por mês; em texto pelo mesmo motivo do valor
+)
+"""
+
 
 class Banco:
     def __init__(self, caminho: Path | str = CAMINHO_PADRAO) -> None:
@@ -34,6 +41,8 @@ class Banco:
         self.caminho.parent.mkdir(parents=True, exist_ok=True)
         with self._conectar() as conexao:
             conexao.execute(CRIAR_TABELA)
+            # Bancos criados por versões antigas ganham a tabela nova aqui, sem perder nada.
+            conexao.execute(CRIAR_TABELA_ORCAMENTOS)
         self._importar_json_antigo()
 
     @contextmanager
@@ -128,3 +137,25 @@ class Banco:
         with self._conectar() as conexao:
             cursor = conexao.execute("DELETE FROM gastos WHERE id = ?", (id,))
         return cursor.rowcount > 0  # rowcount: quantas linhas o comando afetou
+
+    def definir_orcamento(self, categoria: str, limite: Decimal) -> None:
+        """Cria ou troca o limite mensal da categoria."""
+        with self._conectar() as conexao:
+            # "upsert": insere; se a categoria já existe (conflito na chave), só troca o limite.
+            conexao.execute(
+                "INSERT INTO orcamentos (categoria, limite) VALUES (?, ?) "
+                "ON CONFLICT (categoria) DO UPDATE SET limite = excluded.limite",
+                (categoria, str(limite)),
+            )
+
+    def remover_orcamento(self, categoria: str) -> bool:
+        """Apaga o orçamento. Devolve False se a categoria não tinha orçamento."""
+        with self._conectar() as conexao:
+            cursor = conexao.execute("DELETE FROM orcamentos WHERE categoria = ?", (categoria,))
+        return cursor.rowcount > 0
+
+    def listar_orcamentos(self) -> dict[str, Decimal]:
+        """Devolve {categoria: limite mensal}, em ordem alfabética."""
+        with self._conectar() as conexao:
+            linhas = conexao.execute("SELECT * FROM orcamentos ORDER BY categoria").fetchall()
+        return {linha["categoria"]: Decimal(linha["limite"]) for linha in linhas}

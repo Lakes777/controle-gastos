@@ -268,3 +268,55 @@ def test_mes_sem_zero_ainda_encontra_os_gastos(tmp_path, monkeypatch, capsys):
     rodar(monkeypatch, "resumo", "--mes", "2026-9")
 
     assert "mercado" in capsys.readouterr().out
+
+
+def test_orcamento_definir_ver_e_remover(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "adicionar", "420", "mercado", "--data", "2026-09-10")
+    rodar(monkeypatch, "adicionar", "95", "lazer", "--data", "2026-09-12")
+    rodar(monkeypatch, "orcamento", "definir", "Mercado", "500")
+    rodar(monkeypatch, "orcamento", "definir", "lazer", "80")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "orcamento", "--mes", "2026-09")
+    saida = capsys.readouterr().out
+    assert "Orçamento de set/2026" in saida
+    assert "ATENÇÃO: sobram R$ 80,00" in saida  # mercado (categoria salva em minúsculas)
+    assert "ESTOUROU em R$ 15,00" in saida  # lazer
+
+    rodar(monkeypatch, "orcamento", "remover", "lazer")
+    assert "Orçamento de lazer removido" in capsys.readouterr().out
+
+    rodar(monkeypatch, "orcamento", "--mes", "2026-09")
+    saida = capsys.readouterr().out
+    assert "lazer" not in saida
+    assert "mercado" in saida
+
+
+def test_orcamento_sem_mes_mostra_o_mes_atual(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "adicionar", "100", "mercado")  # data de hoje
+    rodar(monkeypatch, "orcamento", "definir", "mercado", "500")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "orcamento")
+
+    saida = capsys.readouterr().out
+    assert "R$ 100,00 de R$ 500,00" in saida
+
+
+def test_orcamento_sem_nenhum_definido(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    rodar(monkeypatch, "orcamento")
+
+    assert "Nenhum orçamento definido" in capsys.readouterr().out
+
+
+def test_remover_orcamento_inexistente_da_erro(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit) as erro:
+        rodar(monkeypatch, "orcamento", "remover", "lazer")
+
+    assert "não tem orçamento" in str(erro.value)
