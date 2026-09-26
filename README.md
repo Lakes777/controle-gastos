@@ -4,6 +4,8 @@
 
 Aplicativo para registrar e acompanhar gastos pessoais: na linha de comando, em Python puro, ou no navegador, com uma API em FastAPI.
 
+**Ver ao vivo:** https://controle-gastos-lakes777.vercel.app (demonstração com dados de exemplo, só seus)
+
 ![Demonstração do controle de gastos: adicionar, listar, editar, gráficos e exportar para Excel](docs/demo.gif)
 
 > Gravado com dados de exemplo.
