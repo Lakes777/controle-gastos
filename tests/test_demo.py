@@ -134,6 +134,7 @@ def test_visitante_nao_mexe_no_gasto_de_outro_pelo_numero(demo, cliente):
 
 
 def test_cookie_invalido_vira_visitante_novo(demo, conectar_postgres, cliente):
+    cliente.cookies.clear()  # senão o cookie válido da página iria junto com o falso
     cliente.cookies.set(NOME_COOKIE, "'; DROP TABLE contas; --")
     resposta = cliente.get("/gastos")
     assert resposta.status_code == 200
