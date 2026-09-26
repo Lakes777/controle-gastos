@@ -8,7 +8,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from gastos.armazenamento import Banco
-from gastos.exportacao import escrever_csv
+from gastos.exportacao import escrever_csv, escrever_xlsx
 from gastos.modelo import Gasto
 
 
@@ -91,10 +91,14 @@ def cmd_exportar(args: argparse.Namespace) -> None:
     # "x" cria o arquivo e falha se ele já existir; "w" substitui sem perguntar.
     modo = "w" if args.sobrescrever else "x"
     try:
-        # utf-8-sig: avisa ao Excel que é UTF-8 (senão "almoço" vira "almoÃ§o").
-        # newline="": o módulo csv cuida das quebras de linha sozinho.
-        with open(args.arquivo, modo, encoding="utf-8-sig", newline="") as arquivo:
-            quantidade = escrever_csv(gastos, arquivo)
+        if args.arquivo.lower().endswith(".xlsx"):
+            with open(args.arquivo, modo + "b") as arquivo:  # "b": arquivo binário (.zip)
+                quantidade = escrever_xlsx(gastos, arquivo)
+        else:
+            # utf-8-sig: avisa ao Excel que é UTF-8 (senão "almoço" vira "almoÃ§o").
+            # newline="": o módulo csv cuida das quebras de linha sozinho.
+            with open(args.arquivo, modo, encoding="utf-8-sig", newline="") as arquivo:
+                quantidade = escrever_csv(gastos, arquivo)
     except FileExistsError:
         sys.exit(f"O arquivo {args.arquivo} já existe. Use --sobrescrever para substituí-lo.")
     print(f"{quantidade} gasto(s) exportado(s) para {args.arquivo}")
@@ -159,8 +163,10 @@ def main() -> None:
     p_editar.add_argument("--data", type=date.fromisoformat, help="nova data (AAAA-MM-DD)")
     p_editar.set_defaults(funcao=cmd_editar)
 
-    p_exportar = subparsers.add_parser("exportar", help="salva os gastos num arquivo CSV")
-    p_exportar.add_argument("arquivo", help="ex.: gastos.csv")
+    p_exportar = subparsers.add_parser(
+        "exportar", help="salva os gastos em planilha do Excel (.xlsx) ou CSV"
+    )
+    p_exportar.add_argument("arquivo", help="ex.: gastos.xlsx ou gastos.csv")
     p_exportar.add_argument("--mes", help="exporta só um mês, no formato AAAA-MM")
     p_exportar.add_argument(
         "--sobrescrever", action="store_true", help="substitui o arquivo se ele já existir"

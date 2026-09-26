@@ -1,5 +1,6 @@
 import argparse
 import sys
+import zipfile
 from decimal import Decimal
 
 import pytest
@@ -196,3 +197,24 @@ def test_exportar_com_sobrescrever_substitui(tmp_path, monkeypatch):
     rodar(monkeypatch, "exportar", "gastos.csv", "--sobrescrever")
 
     assert "mercado" in (tmp_path / "gastos.csv").read_text(encoding="utf-8-sig")
+
+
+def test_exportar_xlsx_pela_extensao(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "adicionar", "30", "lanche")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "exportar", "gastos.XLSX")
+
+    assert "1 gasto(s) exportado(s)" in capsys.readouterr().out
+    assert zipfile.is_zipfile(tmp_path / "gastos.XLSX")
+
+
+def test_exportar_xlsx_nao_sobrescreve_sem_pedir(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "gastos.xlsx").write_bytes(b"planilha importante")
+
+    with pytest.raises(SystemExit):
+        rodar(monkeypatch, "exportar", "gastos.xlsx")
+
+    assert (tmp_path / "gastos.xlsx").read_bytes() == b"planilha importante"

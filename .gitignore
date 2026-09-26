@@ -11,3 +11,4 @@ dados/
 
 # Planilhas exportadas (têm dados pessoais)
 *.csv
+*.xlsx
