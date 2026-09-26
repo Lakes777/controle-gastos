@@ -6,6 +6,7 @@ import pytest
 
 from gastos.armazenamento import Banco
 from gastos.modelo import Gasto
+from gastos.recorrentes import Recorrente
 
 
 def test_banco_novo_comeca_vazio(tmp_path):
@@ -224,3 +225,69 @@ def test_banco_de_versao_antiga_ganha_a_tabela_de_orcamentos(tmp_path):
 
     assert len(banco.listar()) == 1  # o gasto antigo continua lá
     assert banco.listar_orcamentos() == {"lanche": Decimal("100")}
+
+
+# --- Gastos recorrentes ---
+
+
+def test_adicionar_listar_e_remover_recorrente(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+
+    salvo = banco.adicionar_recorrente(
+        Recorrente(Decimal("1200"), "aluguel", 5, "2026-10", "apartamento")
+    )
+
+    assert salvo.id == 1
+    assert banco.listar_recorrentes() == [salvo]
+    assert banco.remover_recorrente(salvo.id) is True
+    assert banco.remover_recorrente(salvo.id) is False
+    assert banco.listar_recorrentes() == []
+
+
+def test_lancar_cria_os_gastos_e_nao_repete(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+    banco.adicionar_recorrente(Recorrente(Decimal("1200"), "aluguel", 5, "2026-10"))
+    banco.adicionar_recorrente(Recorrente(Decimal("39.90"), "internet", 20, "2026-10"))
+
+    lancados = banco.lancar_recorrentes(date(2026, 11, 10))
+
+    assert [(g.categoria, g.data) for g in lancados] == [
+        ("aluguel", date(2026, 10, 5)),
+        ("internet", date(2026, 10, 20)),
+        ("aluguel", date(2026, 11, 5)),
+    ]
+    assert banco.listar() == lancados
+    # Rodar de novo no mesmo dia não lança nada.
+    assert banco.lancar_recorrentes(date(2026, 11, 10)) == []
+    assert [r.proximo_mes for r in banco.listar_recorrentes()] == ["2026-12", "2026-11"]
+
+
+def test_gasto_lancado_e_apagado_nao_volta(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+    banco.adicionar_recorrente(Recorrente(Decimal("1200"), "aluguel", 5, "2026-10"))
+    [lancado] = banco.lancar_recorrentes(date(2026, 10, 5))
+
+    banco.remover(lancado.id)
+
+    assert banco.lancar_recorrentes(date(2026, 10, 30)) == []
+    assert banco.listar() == []
+
+
+def test_remover_recorrente_mantem_os_gastos_ja_lancados(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+    recorrente = banco.adicionar_recorrente(Recorrente(Decimal("50"), "academia", 1, "2026-10"))
+    banco.lancar_recorrentes(date(2026, 10, 1))
+
+    banco.remover_recorrente(recorrente.id)
+
+    assert len(banco.listar()) == 1
+    assert banco.lancar_recorrentes(date(2027, 1, 1)) == []
+
+
+def test_dia_fora_de_1_a_31_e_recusado_pelo_banco(tmp_path):
+    import sqlite3
+
+    banco = Banco(tmp_path / "gastos.db")
+
+    with pytest.raises(sqlite3.IntegrityError):
+        banco.adicionar_recorrente(Recorrente(Decimal("1"), "x", 32, "2026-10"))

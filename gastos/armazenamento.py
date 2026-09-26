@@ -14,6 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from gastos.modelo import Gasto
+from gastos.recorrentes import Recorrente, datas_pendentes, mes_seguinte
 
 CAMINHO_PADRAO = Path("dados/gastos.db")
 
@@ -34,6 +35,17 @@ CREATE TABLE IF NOT EXISTS orcamentos (
 )
 """
 
+CRIAR_TABELA_RECORRENTES = """
+CREATE TABLE IF NOT EXISTS recorrentes (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    valor       TEXT    NOT NULL,
+    categoria   TEXT    NOT NULL,
+    descricao   TEXT    NOT NULL DEFAULT '',
+    dia         INTEGER NOT NULL CHECK (dia BETWEEN 1 AND 31),
+    proximo_mes TEXT    NOT NULL  -- AAAA-MM: o mês que ainda falta lançar
+)
+"""
+
 
 class Banco:
     def __init__(self, caminho: Path | str = CAMINHO_PADRAO) -> None:
@@ -43,6 +55,7 @@ class Banco:
             conexao.execute(CRIAR_TABELA)
             # Bancos criados por versões antigas ganham a tabela nova aqui, sem perder nada.
             conexao.execute(CRIAR_TABELA_ORCAMENTOS)
+            conexao.execute(CRIAR_TABELA_RECORRENTES)
         self._importar_json_antigo()
 
     @contextmanager
@@ -159,3 +172,64 @@ class Banco:
         with self._conectar() as conexao:
             linhas = conexao.execute("SELECT * FROM orcamentos ORDER BY categoria").fetchall()
         return {linha["categoria"]: Decimal(linha["limite"]) for linha in linhas}
+
+    @staticmethod
+    def _para_recorrente(linha: sqlite3.Row) -> Recorrente:
+        return Recorrente(
+            valor=Decimal(linha["valor"]),
+            categoria=linha["categoria"],
+            dia=linha["dia"],
+            proximo_mes=linha["proximo_mes"],
+            descricao=linha["descricao"],
+            id=linha["id"],
+        )
+
+    def adicionar_recorrente(self, recorrente: Recorrente) -> Recorrente:
+        """Salva o recorrente e devolve uma cópia dele com o id preenchido."""
+        with self._conectar() as conexao:
+            cursor = conexao.execute(
+                "INSERT INTO recorrentes (valor, categoria, descricao, dia, proximo_mes) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    str(recorrente.valor),
+                    recorrente.categoria,
+                    recorrente.descricao,
+                    recorrente.dia,
+                    recorrente.proximo_mes,
+                ),
+            )
+        return replace(recorrente, id=cursor.lastrowid)
+
+    def listar_recorrentes(self) -> list[Recorrente]:
+        with self._conectar() as conexao:
+            linhas = conexao.execute("SELECT * FROM recorrentes ORDER BY dia, id").fetchall()
+        return [self._para_recorrente(linha) for linha in linhas]
+
+    def remover_recorrente(self, id: int) -> bool:
+        """Para de lançar o recorrente. Os gastos já lançados continuam."""
+        with self._conectar() as conexao:
+            cursor = conexao.execute("DELETE FROM recorrentes WHERE id = ?", (id,))
+        return cursor.rowcount > 0
+
+    def lancar_recorrentes(self, hoje: date) -> list[Gasto]:
+        """Lança os gastos recorrentes cuja data já chegou e devolve os que foram lançados.
+
+        Tudo numa transação só: cada gasto é inserido junto com o avanço do
+        proximo_mes. Se algo falhar no meio, nada é lançado, e nunca um mês
+        é lançado duas vezes.
+        """
+        lancados = []
+        with self._conectar() as conexao:
+            linhas = conexao.execute("SELECT * FROM recorrentes ORDER BY dia, id").fetchall()
+            for recorrente in map(self._para_recorrente, linhas):
+                datas = datas_pendentes(recorrente, hoje)
+                if not datas:
+                    continue
+                for data in datas:
+                    gasto = Gasto(recorrente.valor, recorrente.categoria, recorrente.descricao, data)
+                    lancados.append(replace(gasto, id=self._inserir(conexao, gasto)))
+                conexao.execute(
+                    "UPDATE recorrentes SET proximo_mes = ? WHERE id = ?",
+                    (mes_seguinte(f"{datas[-1]:%Y-%m}"), recorrente.id),
+                )
+        return sorted(lancados, key=lambda g: (g.data, g.id))
