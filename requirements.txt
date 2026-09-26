@@ -3,5 +3,7 @@ fastapi>=0.115,<1
 uvicorn>=0.30,<1
 # Driver do Postgres (banco da versão online); "binary" já traz a libpq, sem compilar nada
 psycopg[binary]>=3.2,<4
+# Hash de senhas com argon2id (login da versão online)
+argon2-cffi>=23,<26
 # Fuso horário do Brasil em qualquer servidor (alguns não trazem a base de fusos)
 tzdata

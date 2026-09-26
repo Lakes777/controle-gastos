@@ -71,6 +71,31 @@ CRIAR_TABELAS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS recorrentes_conta ON recorrentes (conta)",
+    # ---------- Login ----------
+    # Migração: as contas eram só de visitantes da demonstração. Agora podem ser de
+    # usuários, com e-mail e senha (o hash da senha, nunca a senha).
+    "ALTER TABLE contas ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'demo'",
+    "ALTER TABLE contas ADD COLUMN IF NOT EXISTS email TEXT",
+    "ALTER TABLE contas ADD COLUMN IF NOT EXISTS senha_hash TEXT",
+    # Um e-mail só pode ter uma conta, sem diferença de maiúsculas ("Ana@x" = "ana@x").
+    "CREATE UNIQUE INDEX IF NOT EXISTS contas_email ON contas (lower(email))",
+    # No banco fica o hash do número da sessão (quem ler o banco não consegue usá-lo).
+    """
+    CREATE TABLE IF NOT EXISTS sessoes (
+        token_hash TEXT        PRIMARY KEY,
+        conta      TEXT        NOT NULL REFERENCES contas (id) ON DELETE CASCADE,
+        criada_em  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        expira_em  TIMESTAMPTZ NOT NULL
+    )
+    """,
+    # Senhas erradas recentes, para bloquear quem tenta adivinhar a senha.
+    """
+    CREATE TABLE IF NOT EXISTS tentativas_login (
+        email   TEXT        NOT NULL,
+        momento TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS tentativas_login_email ON tentativas_login (email, momento)",
 ]
 
 

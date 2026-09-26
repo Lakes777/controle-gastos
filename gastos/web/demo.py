@@ -115,32 +115,45 @@ class Demonstracao:
     def abrir(self, visitante: str, hoje: date) -> Iterator[BancoPostgres]:
         """Abre o banco do visitante (uma conexão por pedido); na primeira vez, com os exemplos."""
         with closing(self.conectar()) as conexao:
-            banco = BancoPostgres(conexao, visitante)
-            # Criar a conta e preencher os exemplos numa transação só. Se a página faz
-            # vários pedidos juntos, o segundo INSERT espera o primeiro terminar e aí
-            # não faz nada (ON CONFLICT): ninguém vê uma conta pela metade.
-            with conexao.transaction():
-                nova = conexao.execute(
-                    "INSERT INTO contas (id) VALUES (%s) ON CONFLICT DO NOTHING RETURNING id",
-                    (visitante,),
-                ).fetchone()
-                if nova:
-                    preencher_exemplos(banco, hoje)
+            yield self.preparar(conexao, visitante, hoje)
+
+    def preparar(self, conexao: psycopg.Connection, visitante: str, hoje: date) -> BancoPostgres:
+        """O banco do visitante numa conexão já aberta; na primeira vez, cria a conta com os exemplos."""
+        banco = BancoPostgres(conexao, visitante)
+        # Criar a conta e preencher os exemplos numa transação só. Se a página faz
+        # vários pedidos juntos, o segundo INSERT espera o primeiro terminar e aí
+        # não faz nada (ON CONFLICT): ninguém vê uma conta pela metade.
+        with conexao.transaction():
+            nova = conexao.execute(
+                "INSERT INTO contas (id, tipo) VALUES (%s, 'demo') "
+                "ON CONFLICT DO NOTHING RETURNING id",
+                (visitante,),
+            ).fetchone()
             if nova:
-                self._apagar_antigas(conexao)
-            yield banco
+                preencher_exemplos(banco, hoje)
+            else:
+                # O cookie da demo só pode abrir conta de demo, nunca a de um usuário.
+                tipo = conexao.execute(
+                    "SELECT tipo FROM contas WHERE id = %s", (visitante,)
+                ).fetchone()["tipo"]
+                if tipo != "demo":
+                    raise PermissionError("o cookie da demonstração aponta para uma conta de usuário")
+        if nova:
+            self._apagar_antigas(conexao)
+        return banco
 
     def _apagar_antigas(self, conexao: psycopg.Connection) -> None:
-        """Apaga as contas vencidas e, se ainda houver muitas, as mais antigas.
+        """Apaga as contas de demonstração vencidas e, se ainda houver muitas, as mais antigas.
 
+        Só as de demonstração (tipo = 'demo'): contas de usuários nunca são apagadas aqui.
         Os gastos, orçamentos e recorrentes vão junto (ON DELETE CASCADE).
         """
         with conexao.transaction():
             conexao.execute(
-                "DELETE FROM contas WHERE criada_em < now() - %s", (VALIDADE,)
+                "DELETE FROM contas WHERE tipo = 'demo' AND criada_em < now() - %s", (VALIDADE,)
             )
             conexao.execute(
-                "DELETE FROM contas WHERE id IN "
-                "(SELECT id FROM contas ORDER BY criada_em DESC OFFSET %s)",
+                "DELETE FROM contas WHERE tipo = 'demo' AND id IN "
+                "(SELECT id FROM contas WHERE tipo = 'demo' ORDER BY criada_em DESC OFFSET %s)",
                 (self.max_contas,),
             )
