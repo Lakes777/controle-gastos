@@ -1,1 +1,4 @@
+-r requirements.txt
 pytest
+# Usado pelo TestClient do FastAPI (a Starlette pede httpx2 no lugar do httpx)
+httpx2
