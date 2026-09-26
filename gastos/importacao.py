@@ -1,7 +1,8 @@
 """Lê o extrato em CSV do Nubank (fatura do cartão ou extrato da conta).
 
 O formato é reconhecido pelo cabeçalho:
-- fatura do cartão:  date,title,amount           (2026-09-05; gasto é positivo)
+- fatura do cartão:  date,title,amount           (2026-09-05; gasto é positivo;
+                     o valor pode vir como "41,80" e o negativo como "- 84,00")
 - extrato da conta:  Data,Valor,Identificador,Descrição   (05/09/2026; gasto é negativo)
 """
 
@@ -20,11 +21,18 @@ CARTAO, CONTA = "fatura do cartão", "extrato da conta"
 # A ordem importa: "amazon prime" (assinatura) vem antes de "amazon" (compras),
 # e "mercado livre" (compras) antes de "mercado".
 REGRAS_DE_CATEGORIA = [
-    ("assinaturas", ["netflix", "spotify", "amazon prime", "prime video", "disney", "youtube", "hbo"]),
+    ("assinaturas", [
+        "netflix", "spotify", "amazon prime", "prime video", "disney", "youtube", "hbo",
+        "apple.com/bill",
+    ]),
     ("compras", ["mercado livre", "mercadolivre", "shopee", "amazon", "aliexpress", "magalu", "shein"]),
-    ("mercado", ["mercado", "supermerc", "atacad", "assai", "carrefour", "condor", "hortifruti"]),
+    ("mercado", [
+        "mercado", "supermerc", "atacad", "assai", "carrefour", "condor", "hortifruti",
+        "angeloni", "muffato",
+    ]),
     ("transporte", ["uber", "99app", "99 pop", "cabify", "posto", "combustiv", "estacionamento"]),
     ("alimentação", ["ifood", "rappi", "restaurante", "lanchonete", "padaria", "pizza", "burger"]),
+    ("lazer", ["steam", "playstation", "xbox", "nintendo", "cinema", "ingresso"]),
     ("saúde", ["farmacia", "farmácia", "drogaria", "raia", "panvel", "droga"]),
 ]
 SEM_CATEGORIA = "outros"
@@ -69,8 +77,12 @@ def adivinhar_categoria(descricao: str) -> str:
 
 
 def _valor(texto: str) -> Decimal:
+    """Aceita os jeitos que o Nubank já usou: '41.80', '"41,80"', '1.234,56' e '- 84,00'."""
+    limpo = texto.replace(" ", "").replace("\u00a0", "")  # "- 84,00" vira "-84,00"
+    if "," in limpo:  # formato brasileiro: ponto separa milhar, vírgula separa centavos
+        limpo = limpo.replace(".", "").replace(",", ".")
     try:
-        valor = Decimal(texto.strip())
+        valor = Decimal(limpo)
     except InvalidOperation:
         raise ValueError(f"valor inválido: {texto!r}")
     if not valor.is_finite():

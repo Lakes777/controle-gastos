@@ -118,6 +118,10 @@ def test_linha_invalida_diz_qual_linha(linha_ruim):
         ("Mercado Livre", "compras"),  # antes de "mercado"
         ("Supermercado Condor", "mercado"),
         ("Drogaria Raia", "saúde"),
+        ("Apple.Com/Bill", "assinaturas"),
+        ("Pag*Steam - Parcela 2/3", "lazer"),
+        ("Angeloni Super Loja", "mercado"),
+        ("Viking Barbearia", "outros"),  # "bar" dentro de Barbearia não vira lazer
         ("Loja qualquer", "outros"),
     ],
 )
@@ -131,3 +135,26 @@ def test_valor_zero_nao_vira_gasto_em_nenhum_formato():
 
     assert fatura.itens == [] and len(fatura.ignorados) == 1
     assert conta.itens == [] and len(conta.ignorados) == 1
+
+
+# Como a fatura real do Nubank vem (conferido num arquivo exportado em 2026):
+# valor com vírgula e entre aspas, e negativo com espaço depois do sinal.
+FATURA_FORMATO_REAL = '''date,title,amount
+2026-08-02,Loja Online* Exemplo,"41,80"
+2026-08-01,Barbearia Exemplo,"70,00"
+2026-07-29,Pagamento recebido,"- 84,00"
+2026-07-28,Notebook Exemplo,"1.234,56"
+'''
+
+
+def test_fatura_no_formato_real_com_virgula_e_sinal_separado():
+    extrato = ler(FATURA_FORMATO_REAL)
+
+    assert [g.valor for g, _ in extrato.itens] == [
+        Decimal("41.80"),
+        Decimal("70.00"),
+        Decimal("1234.56"),
+    ]
+    assert [(i.descricao, i.valor) for i in extrato.ignorados] == [
+        ("Pagamento recebido", Decimal("-84.00"))
+    ]
