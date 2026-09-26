@@ -11,7 +11,7 @@ ficar num arquivo (cada cópia teria o seu) e o lançamento de recorrentes trava
 linhas (FOR UPDATE) para duas cópias não lançarem o mesmo mês.
 """
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import replace
 from decimal import Decimal
@@ -46,6 +46,11 @@ CRIAR_TABELAS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS gastos_conta_data ON gastos (conta, data)",
+    # Migração: de onde veio um gasto importado (evita importar duas vezes). O banco
+    # online já existia sem esta coluna, e CREATE TABLE IF NOT EXISTS não a acrescentaria.
+    "ALTER TABLE gastos ADD COLUMN IF NOT EXISTS origem TEXT",
+    # Gastos digitados à mão têm origem NULL, e o índice UNIQUE aceita vários NULL.
+    "CREATE UNIQUE INDEX IF NOT EXISTS gastos_conta_origem ON gastos (conta, origem)",
     """
     CREATE TABLE IF NOT EXISTS orcamentos (
         conta     TEXT          NOT NULL REFERENCES contas (id) ON DELETE CASCADE,
@@ -248,3 +253,30 @@ class BancoPostgres:
                     (mes_seguinte(f"{datas[-1]:%Y-%m}"), recorrente.id),
                 )
         return sorted(lancados, key=lambda g: (g.data, g.id))
+
+    # ---------- Importação ----------
+
+    def origens_existentes(self) -> set[str]:
+        """Origens dos gastos já importados (para saber o que seria repetido)."""
+        linhas = self.conexao.execute(
+            "SELECT origem FROM gastos WHERE conta = %s AND origem IS NOT NULL", (self.conta,)
+        ).fetchall()
+        return {linha["origem"] for linha in linhas}
+
+    def importar(self, itens: Iterable[tuple[Gasto, str]]) -> list[Gasto]:
+        """Salva gastos importados, cada um com sua origem, numa transação só.
+
+        Um gasto cuja origem já está no banco é pulado. Devolve os que entraram.
+        """
+        importados = []
+        with self._transacao() as conexao:
+            for gasto, origem in itens:
+                linha = conexao.execute(
+                    "INSERT INTO gastos (conta, valor, categoria, descricao, data, origem) "
+                    "VALUES (%s, %s, %s, %s, %s, %s) "
+                    "ON CONFLICT (conta, origem) DO NOTHING RETURNING id",
+                    (self.conta, gasto.valor, gasto.categoria, gasto.descricao, gasto.data, origem),
+                ).fetchone()
+                if linha:
+                    importados.append(replace(gasto, id=linha["id"]))
+        return importados

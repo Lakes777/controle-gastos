@@ -96,6 +96,22 @@ def test_recorrentes_lancados_uma_vez_so(banco):
     assert len(banco.listar()) == 2  # os gastos já lançados continuam
 
 
+def test_importar_sem_repetir(banco):
+    itens = [
+        (Gasto(Decimal("23.59"), "transporte", "Uber", date(2026, 9, 5)), "nubank:a"),
+        (Gasto(Decimal("55.90"), "assinaturas", "Netflix", date(2026, 9, 7)), "nubank:b"),
+    ]
+    banco.adicionar(Gasto(Decimal("10"), "mercado", "à mão", date(2026, 9, 1)))  # origem vazia
+
+    assert [g.descricao for g in banco.importar(itens)] == ["Uber", "Netflix"]
+    assert banco.origens_existentes() == {"nubank:a", "nubank:b"}
+    # O mesmo arquivo de novo: nada entra.
+    assert banco.importar(itens) == []
+    novo = (Gasto(Decimal("5"), "x", "novo", date(2026, 9, 8)), "nubank:c")
+    assert [g.descricao for g in banco.importar([itens[0], novo])] == ["novo"]
+    assert len(banco.listar()) == 4
+
+
 # ---------- Só no Postgres ----------
 
 
@@ -114,6 +130,35 @@ def test_cada_conta_so_ve_e_mexe_no_que_e_dela(postgres):
     assert not b.atualizar(Gasto(Decimal("1"), "hack", "", date(2026, 9, 1), id=gasto_de_a.id))
     assert not b.remover(gasto_de_a.id)
     assert a.buscar(gasto_de_a.id) == gasto_de_a
+
+
+def test_mesma_origem_em_contas_diferentes(postgres):
+    criar_conta(postgres, "b")
+    item = [(Gasto(Decimal("10"), "x", "", date(2026, 9, 1)), "nubank:igual")]
+    assert len(BancoPostgres(postgres, "a").importar(item)) == 1
+    assert len(BancoPostgres(postgres, "b").importar(item)) == 1  # cada conta importa o seu
+    assert BancoPostgres(postgres, "b").origens_existentes() == {"nubank:igual"}
+
+
+def test_migracao_acrescenta_a_coluna_origem_em_banco_antigo(conectar_postgres):
+    with closing(conectar_postgres()) as conexao:
+        # Como o banco online estava antes da importação: sem a coluna origem.
+        conexao.execute("CREATE TABLE contas (id TEXT PRIMARY KEY, criada_em TIMESTAMPTZ NOT NULL DEFAULT now())")
+        conexao.execute(
+            "CREATE TABLE gastos (id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, "
+            "conta TEXT NOT NULL REFERENCES contas (id) ON DELETE CASCADE, valor NUMERIC(12, 2) NOT NULL, "
+            "categoria TEXT NOT NULL, descricao TEXT NOT NULL DEFAULT '', data DATE NOT NULL)"
+        )
+        criar_conta(conexao, "a")
+        conexao.execute(
+            "INSERT INTO gastos (conta, valor, categoria, data) VALUES ('a', 10, 'x', '2026-09-01')"
+        )
+
+        criar_tabelas(conexao)
+
+        banco = BancoPostgres(conexao, "a")
+        assert len(banco.listar()) == 1
+        assert len(banco.importar([(Gasto(Decimal("5"), "y", "", date(2026, 9, 2)), "o")])) == 1
 
 
 def test_apagar_a_conta_apaga_tudo_dela(postgres):
