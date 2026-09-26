@@ -6,16 +6,20 @@
 /recorrentes: gastos lançados sozinhos todo mês.
 /exportar: baixa os gastos em planilha do Excel (.xlsx) ou CSV.
 /importar: lê o CSV do Nubank, mostra a prévia e salva os gastos revisados.
+/conta: cadastro (com convite), entrar, sair e excluir a conta (só na versão online).
 """
 
 import io
 from collections.abc import Iterator
+from contextlib import closing
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
+import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from gastos.armazenamento import Banco
@@ -26,9 +30,21 @@ from gastos.modelo import Gasto
 from gastos.orcamento import Situacao, calcular
 from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
 from gastos.web.banco_postgres import BancoPostgres
+from gastos.web.contas import (
+    VALIDADE_SESSAO,
+    CadastroFechado,
+    ConviteInvalido,
+    EmailJaCadastrado,
+    LoginBloqueado,
+    normalizar_email,
+)
 from gastos.web.demo import LIMITE_GASTOS, LIMITE_RECORRENTES
 from gastos.web.modelos import (
     PADRAO_MES,
+    Cadastro,
+    ConfirmacaoSenha,
+    InfoSessao,
+    Login,
     IgnoradoNaImportacao,
     ItemImportado,
     PedidoImportacao,
@@ -50,6 +66,12 @@ roteador_relatorios = APIRouter(tags=["relatórios"])
 roteador_orcamentos = APIRouter(prefix="/orcamentos", tags=["orçamentos"])
 roteador_recorrentes = APIRouter(prefix="/recorrentes", tags=["recorrentes"])
 roteador_importacao = APIRouter(prefix="/importar", tags=["importação"])
+roteador_conta = APIRouter(prefix="/conta", tags=["conta"])
+
+COOKIE_SESSAO = "sessao"
+# Contas de usuário também têm limite (o banco gratuito tem pouco espaço), bem maior que o da demo.
+LIMITE_GASTOS_USUARIO = 20_000
+LIMITE_RECORRENTES_USUARIO = 100
 
 # As rotas funcionam com qualquer um dos dois: os métodos têm os mesmos nomes.
 QualquerBanco = Banco | BancoPostgres
@@ -66,10 +88,24 @@ def hoje() -> date:
     return datetime.now(FUSO).date()
 
 
+def conferir_origem(request: Request) -> None:
+    """Recusa pedidos que alteram dados vindos de outro site (proteção contra CSRF).
+
+    O cookie SameSite=Lax já barra a maior parte; esta conferência é uma segunda
+    barreira. O navegador sempre manda o cabeçalho Origin nesses pedidos.
+    """
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return
+    origem = request.headers.get("origin")
+    if origem and urlsplit(origem).netloc != request.headers.get("host"):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Pedido de outro site recusado")
+
+
 def pegar_banco(
     request: Request, response: Response, dia: date = Depends(hoje)
 ) -> Iterator[QualquerBanco]:
     # Com yield, o FastAPI roda o que vem depois (fechar a conexão) ao fim do pedido.
+    request.state.usuario = None
     demo = request.app.state.demo
     if demo is None:
         banco = request.app.state.banco  # SQLite guardado no app ao criá-lo
@@ -77,10 +113,31 @@ def pegar_banco(
         banco.lancar_recorrentes(dia)
         yield banco
         return
-    # Na demonstração, cada visitante é uma conta no Postgres (veja demo.py).
-    with demo.abrir(demo.identificar(request, response), dia) as banco:
+    # Online: quem tem sessão usa a própria conta; os outros, a demonstração (veja demo.py).
+    with closing(demo.conectar()) as conexao:
+        token = request.cookies.get(COOKIE_SESSAO)
+        usuario = request.app.state.autenticacao.conta_da_sessao(conexao, token) if token else None
+        if usuario:
+            request.state.usuario = usuario
+            banco = BancoPostgres(conexao, usuario["id"])
+        else:
+            try:
+                banco = demo.preparar(conexao, demo.identificar(request, response), dia)
+            except PermissionError:
+                raise HTTPException(status.HTTP_403_FORBIDDEN, "Cookie de demonstração inválido")
         banco.lancar_recorrentes(dia)
         yield banco
+
+
+def pegar_conexao(request: Request) -> Iterator[psycopg.Connection]:
+    """Conexão com o Postgres para as rotas de conta (o login só existe online)."""
+    demo = request.app.state.demo
+    if demo is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "O login só existe na versão online (no computador, não precisa)"
+        )
+    with closing(demo.conectar()) as conexao:
+        yield conexao
 
 
 def para_resposta(gasto: Gasto) -> GastoSalvo:
@@ -100,12 +157,20 @@ def buscar_ou_404(banco: QualquerBanco, gasto_id: int) -> Gasto:
     return gasto
 
 
-def conferir_limite(request: Request, quantidade: int, limite: int, o_que: str) -> None:
-    """Na demonstração online, impede que alguém encha o servidor."""
-    if request.app.state.demo is not None and quantidade >= limite:
+def conferir_limite(request: Request, quantidade: int, o_que: str, novos: int = 1) -> None:
+    """Na versão online, impede que alguém encha o servidor (no computador, não há limite)."""
+    if request.app.state.demo is None:
+        return
+    usuario = request.state.usuario
+    if o_que == "gastos":
+        limite = LIMITE_GASTOS_USUARIO if usuario else LIMITE_GASTOS
+    else:
+        limite = LIMITE_RECORRENTES_USUARIO if usuario else LIMITE_RECORRENTES
+    if quantidade + novos > limite:
+        quem = "Sua conta" if usuario else "A demonstração"
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            f"A demonstração aceita até {limite} {o_que}. Remova algum para adicionar outro.",
+            f"{quem} aceita até {limite} {o_que}. Remova algum para adicionar outro.",
         )
 
 
@@ -126,7 +191,7 @@ def adicionar(
     dia: date = Depends(hoje),
 ) -> GastoSalvo:
     """Registra um gasto. Sem data, vale hoje."""
-    conferir_limite(request, len(banco.listar()), LIMITE_GASTOS, "gastos")
+    conferir_limite(request, len(banco.listar()), "gastos")
     gasto = Gasto(novo.valor, novo.categoria, novo.descricao, novo.data or dia)
     return para_resposta(banco.adicionar(gasto))
 
@@ -309,7 +374,7 @@ def adicionar_recorrente(
     dia: date = Depends(hoje),
 ) -> RecorrenteSalvo:
     """Cria um gasto recorrente. Com "desde" no passado, os meses que já passaram entram agora."""
-    conferir_limite(request, len(banco.listar_recorrentes()), LIMITE_RECORRENTES, "recorrentes")
+    conferir_limite(request, len(banco.listar_recorrentes()), "recorrentes")
     if novo.desde is None:
         proximo = primeiro_mes(novo.dia, dia)
     elif meses_entre(novo.desde, f"{dia:%Y-%m}") > MESES_PARA_TRAS:
@@ -422,12 +487,7 @@ def importar(
 
     Tudo numa transação só; um gasto cuja origem já está no banco é pulado.
     """
-    if request.app.state.demo is not None:
-        if len(banco.listar()) + len(pedido.itens) > LIMITE_GASTOS:
-            raise HTTPException(
-                status.HTTP_403_FORBIDDEN,
-                f"A demonstração aceita até {LIMITE_GASTOS} gastos. Remova alguns para importar.",
-            )
+    conferir_limite(request, len(banco.listar()), "gastos", novos=len(pedido.itens))
     itens = [
         (Gasto(item.valor, item.categoria, item.descricao, item.data), item.origem)
         for item in pedido.itens
@@ -463,3 +523,130 @@ def exemplo(dia: date = Depends(hoje)) -> Response:
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="Nubank_exemplo.csv"'},
     )
+
+
+# ---------- Conta (login) ----------
+
+
+@roteador_relatorios.get("/info", tags=["sistema"])
+def info(request: Request, banco: QualquerBanco = Depends(pegar_banco)) -> InfoSessao:
+    """Diz à página quem está usando: a demonstração, um usuário logado ou o uso pessoal."""
+    autenticacao = request.app.state.autenticacao
+    usuario = request.state.usuario
+    return InfoSessao(
+        demo=request.app.state.demo is not None and usuario is None,
+        email=usuario["email"] if usuario else None,
+        cadastro=autenticacao is not None and autenticacao.cadastro_aberto,
+    )
+
+
+def gravar_sessao(request: Request, response: Response, token: str) -> None:
+    https = request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
+    response.set_cookie(
+        COOKIE_SESSAO,
+        token,
+        max_age=int(VALIDADE_SESSAO.total_seconds()),
+        httponly=True,  # o JavaScript não lê o cookie (um script injetado não rouba a sessão)
+        samesite="lax",  # outros sites não conseguem mandar o cookie num POST
+        secure=https,  # só vai por HTTPS
+    )
+
+
+def usuario_logado(request: Request, conexao: psycopg.Connection = Depends(pegar_conexao)) -> dict:
+    token = request.cookies.get(COOKIE_SESSAO)
+    usuario = request.app.state.autenticacao.conta_da_sessao(conexao, token) if token else None
+    if usuario is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Você não está logado")
+    return usuario
+
+
+@roteador_conta.post(
+    "/cadastro",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        403: {"description": "Convite errado ou cadastro fechado"},
+        409: {"description": "E-mail já cadastrado"},
+    },
+)
+def cadastrar(
+    dados: Cadastro,
+    request: Request,
+    response: Response,
+    conexao: psycopg.Connection = Depends(pegar_conexao),
+) -> dict[str, str]:
+    """Cria a conta (precisa do código de convite) e já entra nela."""
+    autenticacao = request.app.state.autenticacao
+    try:
+        conta = autenticacao.cadastrar(conexao, dados.email, dados.senha, dados.convite)
+    except CadastroFechado:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "O cadastro está fechado")
+    except ConviteInvalido:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Código de convite errado")
+    except EmailJaCadastrado:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Já existe uma conta com esse e-mail")
+    gravar_sessao(request, response, autenticacao.criar_sessao(conexao, conta))
+    return {"email": normalizar_email(dados.email)}
+
+
+@roteador_conta.post(
+    "/entrar",
+    responses={
+        401: {"description": "E-mail ou senha incorretos"},
+        429: {"description": "Tentativas demais"},
+    },
+)
+def entrar(
+    dados: Login,
+    request: Request,
+    response: Response,
+    conexao: psycopg.Connection = Depends(pegar_conexao),
+) -> dict[str, str]:
+    autenticacao = request.app.state.autenticacao
+    try:
+        conta = autenticacao.entrar(conexao, dados.email, dados.senha)
+    except LoginBloqueado:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Muitas tentativas com senha errada. Espere 15 minutos e tente de novo.",
+        )
+    if conta is None:
+        # A mesma mensagem para e-mail inexistente e senha errada.
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "E-mail ou senha incorretos")
+    gravar_sessao(request, response, autenticacao.criar_sessao(conexao, conta))
+    return {"email": normalizar_email(dados.email)}
+
+
+@roteador_conta.post("/sair", status_code=status.HTTP_204_NO_CONTENT)
+def sair(
+    request: Request, response: Response, conexao: psycopg.Connection = Depends(pegar_conexao)
+) -> None:
+    """Encerra a sessão no servidor (o cookie antigo deixa de valer) e apaga o cookie."""
+    token = request.cookies.get(COOKIE_SESSAO)
+    if token:
+        request.app.state.autenticacao.sair(conexao, token)
+    response.delete_cookie(COOKIE_SESSAO)
+
+
+@roteador_conta.get("", responses={401: {"description": "Não está logado"}})
+def minha_conta(usuario: dict = Depends(usuario_logado)) -> dict[str, str]:
+    return {"email": usuario["email"]}
+
+
+@roteador_conta.post(
+    "/excluir",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={401: {"description": "Não está logado"}, 403: {"description": "Senha errada"}},
+)
+def excluir_conta(
+    dados: ConfirmacaoSenha,
+    request: Request,
+    response: Response,
+    usuario: dict = Depends(usuario_logado),
+    conexao: psycopg.Connection = Depends(pegar_conexao),
+) -> None:
+    """Apaga a conta e todos os dados dela. Pede a senha de novo, por segurança."""
+    autenticacao = request.app.state.autenticacao
+    if not autenticacao.conferir_senha(conexao, usuario["id"], dados.senha):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Senha errada")
+    autenticacao.excluir_conta(conexao, usuario["id"])
+    response.delete_cookie(COOKIE_SESSAO)

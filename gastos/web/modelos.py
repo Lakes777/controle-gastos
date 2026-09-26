@@ -11,7 +11,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, PlainSerializer
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, Field, PlainSerializer
 
 # Até 2 casas decimais (centavos) e no máximo R$ 9.999.999.999,99.
 # PlainSerializer: na resposta, o Decimal vira texto com o valor exato.
@@ -164,3 +164,37 @@ class PedidoImportacao(BaseModel):
 class ResultadoImportacao(BaseModel):
     importados: int
     repetidos: int = Field(description="Já estavam no banco e foram pulados")
+
+
+# ---------- Conta (login) ----------
+
+# O e-mail perde os espaços das pontas (o teclado do celular costuma pôr um no fim).
+# A senha, não: ela é conferida exatamente como foi digitada.
+Email = Annotated[
+    str,
+    BeforeValidator(lambda texto: texto.strip() if isinstance(texto, str) else texto),
+    Field(max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$"),
+]
+# Mínimo de 8 caracteres; o máximo evita que alguém mande um texto gigante para o argon2.
+Senha = Annotated[str, Field(min_length=8, max_length=128)]
+
+
+class Cadastro(BaseModel):
+    email: Email
+    senha: Senha
+    convite: str = Field(max_length=200)
+
+
+class Login(BaseModel):
+    email: Annotated[str, BeforeValidator(str.strip), Field(max_length=254)]
+    senha: str = Field(max_length=128)
+
+
+class ConfirmacaoSenha(BaseModel):
+    senha: str = Field(max_length=128)
+
+
+class InfoSessao(BaseModel):
+    demo: bool = Field(description="Quem está usando é um visitante da demonstração")
+    email: str | None = Field(description="E-mail do usuário logado, se houver")
+    cadastro: bool = Field(description="Dá para criar conta (o servidor tem código de convite)")

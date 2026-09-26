@@ -73,7 +73,7 @@ def test_uso_pessoal_nao_tem_limite_nem_cookie(tmp_path, monkeypatch):
     monkeypatch.setattr("gastos.web.rotas.LIMITE_GASTOS", 0)
     cliente = TestClient(criar_app(tmp_path / "gastos.db"))
     assert cliente.post("/gastos", json={"valor": "10", "categoria": "x"}).status_code == 201
-    assert cliente.get("/info").json() == {"demo": False}
+    assert cliente.get("/info").json() == {"demo": False, "email": None, "cadastro": False}
     assert NOME_COOKIE not in cliente.get("/").cookies
 
 
@@ -93,7 +93,7 @@ def test_pagina_entrega_o_cookie_do_visitante(demo):
 
 
 def test_visitante_comeca_com_os_exemplos(cliente):
-    assert cliente.get("/info").json() == {"demo": True}
+    assert cliente.get("/info").json() == {"demo": True, "email": None, "cadastro": False}
     gastos = cliente.get("/gastos?mes=2026-09").json()
     assert len(gastos) == 9  # 7 do exemplo + aluguel e internet lançados sozinhos
     assert len(cliente.get("/recorrentes").json()) == 2
