@@ -547,6 +547,114 @@ async function importarRevisados() {
   }
 }
 
+// ---------- Conta (login, só na versão online) ----------
+
+const conta = { modo: "entrar", cadastroAberto: false };
+
+async function atualizarSessao() {
+  const info = await api("/info");
+  conta.cadastroAberto = info.cadastro;
+  $("#aviso-demo").hidden = !info.demo;
+  // "Entrar" só aparece na versão online (visitante da demo); no computador não há login.
+  $("#botao-entrar").hidden = !info.demo;
+  $("#botao-conta").hidden = !info.email;
+  if (info.email) {
+    $("#botao-conta").textContent = info.email;
+    $("#conta-email").textContent = info.email;
+  }
+}
+
+function trocarModo(modo) {
+  conta.modo = modo;
+  const cadastro = modo === "cadastro";
+  document.querySelectorAll(".aba-janela").forEach((aba) => {
+    const ativa = aba.dataset.modo === modo;
+    aba.classList.toggle("aba-janela--ativa", ativa);
+    aba.setAttribute("aria-selected", ativa);
+  });
+  $("#titulo-entrar").textContent = cadastro ? "Criar conta" : "Entrar";
+  $("#botao-enviar-entrar").textContent = cadastro ? "Criar conta" : "Entrar";
+  $("#rotulo-convite").hidden = !cadastro;
+  $("#nota-cadastro").hidden = !cadastro;
+  // Diz ao gerenciador de senhas do navegador se é para sugerir uma senha nova.
+  $("#entrar-senha").autocomplete = cadastro ? "new-password" : "current-password";
+  $("#erro-entrar").hidden = true;
+}
+
+function abrirJanelaEntrar() {
+  $("#abas-janela").hidden = !conta.cadastroAberto;
+  trocarModo("entrar");
+  $("#form-entrar").reset();
+  $("#janela-entrar").showModal();
+  $("#entrar-email").focus();
+}
+
+function mostrarErro(seletor, texto) {
+  $(seletor).textContent = texto;
+  $(seletor).hidden = false;
+}
+
+async function enviarEntrar(evento) {
+  evento.preventDefault();
+  const cadastro = conta.modo === "cadastro";
+  const dados = { email: $("#entrar-email").value, senha: $("#entrar-senha").value };
+  if (!dados.email.trim() || !dados.senha) return mostrarErro("#erro-entrar", "Preencha o e-mail e a senha.");
+  if (cadastro) {
+    if (dados.senha.length < 8) return mostrarErro("#erro-entrar", "A senha precisa ter pelo menos 8 caracteres.");
+    dados.convite = $("#entrar-convite").value.trim();
+    if (!dados.convite) return mostrarErro("#erro-entrar", "Digite o código de convite.");
+  }
+  const botao = $("#botao-enviar-entrar");
+  botao.disabled = true;
+  try {
+    await api(cadastro ? "/conta/cadastro" : "/conta/entrar", { method: "POST", body: JSON.stringify(dados) });
+    // A sessão muda de conta: recarregar a página é o jeito mais simples de mostrar tudo certo.
+    location.reload();
+  } catch (erro) {
+    botao.disabled = false;
+    mostrarErro("#erro-entrar", erro.message);
+  }
+}
+
+async function sairDaConta() {
+  try {
+    await api("/conta/sair", { method: "POST" });
+    location.reload();
+  } catch (erro) {
+    mostrarMensagem(erro.message, true);
+  }
+}
+
+async function excluirConta(evento) {
+  evento.preventDefault();
+  const senha = $("#excluir-senha").value;
+  if (!senha) return mostrarErro("#erro-excluir", "Digite sua senha.");
+  if (!confirm("Excluir a conta e todos os seus dados? Isso não pode ser desfeito.")) return;
+  try {
+    await api("/conta/excluir", { method: "POST", body: JSON.stringify({ senha }) });
+    location.reload();
+  } catch (erro) {
+    mostrarErro("#erro-excluir", erro.message);
+  }
+}
+
+function iniciarConta() {
+  $("#botao-entrar").addEventListener("click", abrirJanelaEntrar);
+  $("#botao-conta").addEventListener("click", () => {
+    $("#form-excluir").reset();
+    $("#erro-excluir").hidden = true;
+    $("#janela-conta").showModal();
+  });
+  document.querySelectorAll(".aba-janela").forEach((aba) =>
+    aba.addEventListener("click", () => trocarModo(aba.dataset.modo)));
+  document.querySelectorAll("[data-fechar]").forEach((botao) =>
+    botao.addEventListener("click", () => botao.closest("dialog").close()));
+  $("#form-entrar").addEventListener("submit", enviarEntrar);
+  $("#botao-sair").addEventListener("click", sairDaConta);
+  $("#form-excluir").addEventListener("submit", excluirConta);
+  atualizarSessao().catch(() => {}); // sem isso, a página continua funcionando
+}
+
 // ---------- Carregar tudo ----------
 
 async function recarregar() {
@@ -584,9 +692,7 @@ function iniciar() {
   $("#botao-importar").addEventListener("click", importarRevisados);
   $("#botao-cancelar-importacao").addEventListener("click", esconderPrevia);
   recarregar().catch((erro) => mostrarMensagem(erro.message, true));
-  api("/info")
-    .then((info) => ($("#aviso-demo").hidden = !info.demo))
-    .catch(() => {}); // sem o aviso, a página continua funcionando
+  iniciarConta();
 }
 
 iniciar();

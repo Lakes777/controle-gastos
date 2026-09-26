@@ -83,6 +83,20 @@ body {
   text-decoration: underline;
 }
 
+.topo__acoes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+#botao-conta {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---------- Aviso de demonstração ---------- */
 .demo {
   margin: 24px 0 0;
@@ -596,6 +610,105 @@ body {
   color: var(--perigo);
 }
 
+/* ---------- Janelas (entrar e conta) ---------- */
+.janela {
+  width: min(420px, 100% - 32px);
+  padding: 20px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.5);
+}
+
+.janela::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
+
+.janela__topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.janela__titulo {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.janela__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.janela__nota {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.janela__form .janela__nota {
+  margin: 0;
+}
+
+.janela__erro {
+  margin: 0;
+  color: var(--perigo);
+  font-size: 0.9rem;
+}
+
+.janela__perigo {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.janela__perigo summary {
+  cursor: pointer;
+  color: var(--perigo);
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.abas-janela {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.aba-janela {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 6px 12px;
+}
+
+.aba-janela--ativa {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.botao--perigo {
+  background: transparent;
+  border-color: var(--perigo);
+  color: var(--perigo);
+}
+
+.botao--perigo:hover {
+  background: var(--perigo);
+  border-color: var(--perigo);
+  color: var(--bg);
+}
+
 /* ---------- Telas menores ---------- */
 @media (max-width: 860px) {
   .colunas {
@@ -607,6 +720,14 @@ body {
 @media (max-width: 560px) {
   .topo__titulo {
     font-size: 1.2rem;
+  }
+
+  .topo__acoes .topo__link {
+    display: none;
+  }
+
+  #botao-conta {
+    max-width: 150px;
   }
 
   .numeros {

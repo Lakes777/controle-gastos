@@ -33,6 +33,7 @@ TOTAL             R$ 960,20
 - **Exportar** para planilha do Excel (`.xlsx`) ou CSV, geral ou de um mês; o `.xlsx` sai com valores em R$, datas de verdade e linha de total com fórmula
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
+- **Contas de usuário na versão online:** cadastro com código de convite, login com senha em argon2id, sessões que podem ser encerradas e exclusão da conta com todos os dados
 - **Versão web** (FastAPI + HTML/CSS/JS): formulário, lista com editar/remover, gráfico por categoria, orçamento, recorrentes, importação do Nubank com prévia e download do .xlsx, usando o mesmo banco do terminal
 - Dados salvos localmente num banco SQLite, fora do controle de versão
 - Quem usava a versão antiga (JSON) tem os gastos importados automaticamente
@@ -186,8 +187,17 @@ Depois, abra http://127.0.0.1:8000 no navegador. A página usa o mesmo banco da 
 | `POST /importar` | salva os gastos revisados na prévia, sem repetir os já importados |
 | `GET /importar/exemplo.csv` | uma fatura de exemplo, com datas recentes, para testar |
 | `GET /meses`, `GET /categorias` | meses com gastos e categorias já usadas |
+| `POST /conta/cadastro`, `POST /conta/entrar`, `POST /conta/sair` | contas (só na versão online) |
+| `GET /conta`, `POST /conta/excluir` | quem está logado; apaga a conta (pede a senha) |
+| `GET /info` | se é a demonstração, quem está logado e se o cadastro está aberto |
 
 Variáveis de ambiente opcionais: `GASTOS_BANCO` (arquivo do banco), `GASTOS_DEMO=1` (modo demonstração), `HOST` e `PORT`.
+
+### Contas de usuário (versão online)
+
+Na versão online, quem não entra numa conta usa a demonstração. Quem tem conta entra pelo botão **Entrar** e vê só os próprios dados, que ficam guardados no Postgres. Para criar conta é preciso um **código de convite**, definido na variável de ambiente `CODIGO_CONVITE` do servidor; sem ela, o cadastro fica fechado. No computador (`python -m gastos.web` com SQLite) não há login: o programa é de quem o roda.
+
+Não há recuperação de senha por e-mail (o projeto não envia e-mails).
 
 ### Modo demonstração (versão online)
 
@@ -210,7 +220,7 @@ pytest
 
 Os testes do Postgres rodam quando `GASTOS_TESTE_POSTGRES` tem o endereço de um banco (cada teste usa um schema próprio, apagado no fim); sem ela, são pulados. No GitHub Actions, um Postgres 18 sobe junto com os testes.
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa) e o modo demonstração (visitantes isolados, cookie inválido, pedidos simultâneos, limites e limpeza das contas antigas). Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa) o modo demonstração (visitantes isolados, cookie inválido, pedidos simultâneos, limites e limpeza das contas antigas) e o login (convite, senha em argon2id, bloqueio de tentativas, sessão encerrada, CSRF, isolamento entre usuários e exclusão da conta). Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -230,6 +240,7 @@ controle-gastos/
 │       ├── __main__.py   # python -m gastos.web (servidor uvicorn)
 │       ├── app.py        # cria o app FastAPI e serve a página
 │       ├── banco_postgres.py  # o mesmo Banco, em Postgres, com uma conta por linha
+│       ├── contas.py     # cadastro com convite, login (argon2id) e sessões
 │       ├── demo.py       # modo demonstração: uma conta com exemplos por visitante
 │       ├── modelos.py    # o que a API recebe e devolve (Pydantic)
 │       ├── rotas.py      # as rotas da API
@@ -265,6 +276,11 @@ controle-gastos/
 - **Web por cima do mesmo código:** a API não repete regra nenhuma; ela chama o mesmo `Banco`, o mesmo cálculo de orçamento e a mesma exportação da linha de comando. Por isso as duas interfaces sempre concordam.
 - **Dinheiro como texto no JSON:** a API recebe e devolve valores como `"45.90"`, não `45.9`. Um número no JSON vira `float` no JavaScript e traria de volta os erros de centavos. O Pydantic recusa zero, negativo, `NaN` e mais de 2 casas decimais.
 - **Recorrentes lançados a cada pedido:** igual ao terminal, antes de responder, a API lança os recorrentes cuja data chegou. A data de hoje é uma dependência do FastAPI, que os testes trocam por uma data fixa.
+- **Senhas com argon2id:** o hash é lento de propósito e tem um "sal" próprio, então nem quem ler o banco descobre as senhas. O login confere a senha mesmo quando o e-mail não existe (contra um hash falso), para a resposta levar o mesmo tempo, e a mensagem é a mesma nos dois casos: ninguém descobre quem tem conta.
+- **Sessões guardadas no banco, não em JWT:** o cookie leva um número aleatório (`secrets.token_urlsafe`) e o banco guarda só o SHA-256 dele. "Sair" apaga a sessão no servidor, então um cookie copiado deixa de valer. O cookie é `HttpOnly`, `SameSite=Lax` e `Secure` no HTTPS, e vale 30 dias.
+- **Bloqueio de tentativas:** depois de 5 senhas erradas em 15 minutos, o e-mail fica bloqueado (resposta 429). As tentativas ficam no Postgres, porque o servidor roda em várias cópias e a memória de uma não vale para as outras.
+- **CSRF:** além do `SameSite=Lax`, todo pedido que altera dados confere o cabeçalho `Origin` e recusa pedidos vindos de outro site.
+- **Demo e usuários no mesmo banco, sem se misturar:** a limpeza diária apaga só contas de demonstração (`tipo = 'demo'`); o id das contas de usuário (`u_...`) nem tem o formato aceito pelo cookie da demo, e mesmo assim a demo confere o tipo da conta antes de abri-la. Cada uma dessas proteções tem um teste que falha se ela for removida (conferido quebrando o código de propósito).
 - **Postgres na versão online, SQLite no computador:** a Vercel roda o servidor em várias cópias ao mesmo tempo, cada uma com a própria pasta temporária. A primeira versão da demo guardava um SQLite por visitante nessa pasta, e os pedidos simultâneos da página caíam em cópias diferentes: um gasto apagado "voltava". Com um Postgres só, todas as cópias enxergam o mesmo. O `BancoPostgres` tem os mesmos métodos do `Banco` em SQLite, e as rotas funcionam com qualquer um; um mesmo conjunto de testes roda nos dois para garantir que se comportam igual. O defeito foi reproduzido localmente com `uvicorn --workers 4` e confirmado como resolvido.
 - **Uma conta por visitante:** toda linha do Postgres tem a coluna `conta`, e toda consulta filtra por ela, então um visitante não vê nem altera o gasto de outro, mesmo sabendo o número (há teste para isso). A conta vem de um cookie `HttpOnly` com um número aleatório (`uuid4`), conferido por expressão regular. É a mesma estrutura que um login precisaria.
 - **Pedidos simultâneos sem duplicar nada:** a conta é criada e preenchida com os exemplos numa única transação (`INSERT ... ON CONFLICT DO NOTHING`); se a página faz vários pedidos juntos, os outros esperam e não repetem os exemplos. O lançamento dos recorrentes trava as linhas (`SELECT ... FOR UPDATE`), então duas cópias do servidor nunca lançam o mesmo mês. Um teste dispara 8 pedidos ao mesmo tempo com threads, e ele falha se o `FOR UPDATE` for removido.
@@ -289,5 +305,6 @@ controle-gastos/
 - [x] Importar o extrato CSV do Nubank
 - [ ] Importar extratos de outros bancos (Inter, Itaú) e OFX
 - [x] Versão web com API REST (FastAPI)
-- [ ] Colocar a versão web no ar (Vercel)
+- [x] Colocar a versão web no ar (Vercel)
+- [x] Contas de usuário com login
 - [x] Importar o CSV do Nubank pela página, com prévia e categorias editáveis
