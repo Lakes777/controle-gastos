@@ -2,7 +2,7 @@
 
 [![Testes](https://github.com/Lakes777/controle-gastos/actions/workflows/testes.yml/badge.svg)](https://github.com/Lakes777/controle-gastos/actions/workflows/testes.yml)
 
-Aplicativo de linha de comando para registrar e acompanhar gastos pessoais, feito em Python puro.
+Aplicativo para registrar e acompanhar gastos pessoais: na linha de comando, em Python puro, ou no navegador, com uma API em FastAPI.
 
 ![Demonstração do controle de gastos: adicionar, listar, editar, gráficos e exportar para Excel](docs/demo.gif)
 
@@ -31,12 +31,13 @@ TOTAL             R$ 960,20
 - **Exportar** para planilha do Excel (`.xlsx`) ou CSV, geral ou de um mês; o `.xlsx` sai com valores em R$, datas de verdade e linha de total com fórmula
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
+- **Versão web** (FastAPI + HTML/CSS/JS): formulário, lista com editar/remover, gráfico por categoria, orçamento, recorrentes e download do .xlsx, usando o mesmo banco do terminal
 - Dados salvos localmente num banco SQLite, fora do controle de versão
 - Quem usava a versão antiga (JSON) tem os gastos importados automaticamente
 
 ## Instalação
 
-Requer **Python 3.10+**. Não há dependências externas para usar o programa.
+Requer **Python 3.10+**. A linha de comando não tem dependências externas; só a versão web precisa do FastAPI.
 
 ```bash
 git clone https://github.com/Lakes777/controle-gastos.git
@@ -155,6 +156,34 @@ Gasto adicionado: R$ 120,00 em mercado
 Orçamento de mercado em set/2026: R$ 420,00 de R$ 500,00 (84%) - ATENÇÃO: sobram R$ 80,00
 ```
 
+## Versão web
+
+![Versão web do controle de gastos: resumo do mês, formulário, lista de gastos, gráfico por categoria, orçamento e recorrentes](docs/web.png)
+
+> Print com dados de exemplo.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m gastos.web
+```
+
+Depois, abra http://127.0.0.1:8000 no navegador. A página usa o mesmo banco da linha de comando (`dados/gastos.db`), então um gasto adicionado no terminal aparece na web e vice-versa. A documentação interativa da API fica em http://127.0.0.1:8000/docs.
+
+| Rota | O que faz |
+|------|-----------|
+| `GET/POST /gastos` | lista (com `?mes=AAAA-MM`) e registra gastos |
+| `GET/PATCH/DELETE /gastos/{id}` | vê, edita (só os campos enviados) e apaga |
+| `GET /resumo` | total do período e por categoria, com porcentagem |
+| `GET /orcamentos` | situação do orçamento do mês (ok, atenção, estourou) |
+| `PUT/DELETE /orcamentos/{categoria}` | define ou apaga o limite mensal |
+| `GET/POST /recorrentes`, `DELETE /recorrentes/{id}` | gastos que se repetem todo mês |
+| `GET /exportar?formato=xlsx` | baixa a planilha (ou `csv`) |
+| `GET /meses`, `GET /categorias` | meses com gastos e categorias já usadas |
+
+Variáveis de ambiente opcionais: `GASTOS_BANCO` (arquivo do banco), `HOST` e `PORT`.
+
 ## Testes
 
 ```bash
@@ -164,7 +193,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa). Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -179,7 +208,13 @@ controle-gastos/
 │   ├── importacao.py     # leitura do CSV do Nubank
 │   ├── orcamento.py      # situação do orçamento (ok, atenção, estourou)
 │   ├── recorrentes.py    # regras de datas dos gastos recorrentes
-│   └── modelo.py         # a classe Gasto
+│   ├── modelo.py         # a classe Gasto
+│   └── web/
+│       ├── __main__.py   # python -m gastos.web (servidor uvicorn)
+│       ├── app.py        # cria o app FastAPI e serve a página
+│       ├── modelos.py    # o que a API recebe e devolve (Pydantic)
+│       ├── rotas.py      # as rotas da API
+│       └── static/       # a página: index.html, estilo.css e app.js
 └── tests/                # testes com pytest
 ```
 
@@ -204,7 +239,11 @@ controle-gastos/
 - **Datas testáveis:** a data de hoje vem de uma função `hoje()`, que os testes trocam para simular a passagem do tempo (a véspera, o dia certo, meses sem abrir o programa, dia 31 em mês de 30 e ano bissexto).
 - **Tabelas novas sem migração manual:** `CREATE TABLE IF NOT EXISTS` cria as tabelas de orçamentos e de recorrentes em bancos de versões anteriores na primeira vez que são abertos, sem mexer nos gastos.
 - **`--mes` validado e normalizado:** `2026-9` vira `2026-09` (senão não acharia nada no banco) e `setembro` é recusado com uma mensagem clara.
-- **Biblioteca padrão apenas:** `argparse`, `sqlite3`, `csv`, `zipfile`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas.
+- **Web por cima do mesmo código:** a API não repete regra nenhuma; ela chama o mesmo `Banco`, o mesmo cálculo de orçamento e a mesma exportação da linha de comando. Por isso as duas interfaces sempre concordam.
+- **Dinheiro como texto no JSON:** a API recebe e devolve valores como `"45.90"`, não `45.9`. Um número no JSON vira `float` no JavaScript e traria de volta os erros de centavos. O Pydantic recusa zero, negativo, `NaN` e mais de 2 casas decimais.
+- **Recorrentes lançados a cada pedido:** igual ao terminal, antes de responder, a API lança os recorrentes cuja data chegou. A data de hoje é uma dependência do FastAPI, que os testes trocam por uma data fixa.
+- **Sem `innerHTML` no front:** tudo que vem da API entra na página com `textContent`, então uma descrição como `<script>` aparece como texto e não é executada (proteção contra XSS).
+- **Linha de comando só com a biblioteca padrão:** `argparse`, `sqlite3`, `csv`, `zipfile`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas. FastAPI e uvicorn são usados só pela versão web.
 - **Caminho do arquivo como parâmetro:** permite que os testes usem arquivos temporários, isolados dos dados reais.
 - **Dados fora do Git:** a pasta `dados/` está no `.gitignore`, então informações financeiras pessoais nunca vão para o repositório.
 
@@ -218,4 +257,6 @@ controle-gastos/
 - [x] Gastos recorrentes lançados automaticamente
 - [x] Importar o extrato CSV do Nubank
 - [ ] Importar extratos de outros bancos (Inter, Itaú) e OFX
-- [ ] Versão web com API REST (FastAPI)
+- [x] Versão web com API REST (FastAPI)
+- [ ] Colocar a versão web no ar (Vercel)
+- [ ] Importar o CSV do Nubank pela página
