@@ -11,6 +11,7 @@ class Gasto:
     categoria: str
     descricao: str = ""
     data: date = field(default_factory=date.today)
+    id: int | None = None  # número dado pelo banco; None enquanto não foi salvo
 
     def para_dict(self) -> dict:
         """Converte o gasto num dicionário simples, pronto para virar JSON."""

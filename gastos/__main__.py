@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from gastos.armazenamento import carregar, salvar
+from gastos.armazenamento import Banco
 from gastos.modelo import Gasto
 
 
@@ -30,25 +30,24 @@ def formatar_reais(valor: Decimal) -> str:
 
 
 def cmd_adicionar(args: argparse.Namespace) -> None:
-    gastos = carregar()
-    novo = Gasto(
-        valor=args.valor,
-        categoria=args.categoria.lower(),
-        descricao=args.descricao,
-        data=args.data,
+    novo = Banco().adicionar(
+        Gasto(
+            valor=args.valor,
+            categoria=args.categoria.lower(),
+            descricao=args.descricao,
+            data=args.data,
+        )
     )
-    gastos.append(novo)
-    salvar(gastos)
     print(f"Gasto adicionado: {formatar_reais(novo.valor)} em {novo.categoria}")
 
 
 def cmd_listar(args: argparse.Namespace) -> None:
-    gastos = carregar()
+    gastos = Banco().listar()
     if not gastos:
         print("Nenhum gasto registrado ainda.")
         return
 
-    for gasto in sorted(gastos, key=lambda g: g.data):
+    for gasto in gastos:  # o banco já devolve em ordem cronológica
         print(
             f"{gasto.data:%d/%m/%Y}  {formatar_reais(gasto.valor):>12}  "
             f"{gasto.categoria:<12}  {gasto.descricao}"
@@ -56,9 +55,7 @@ def cmd_listar(args: argparse.Namespace) -> None:
 
 
 def cmd_resumo(args: argparse.Namespace) -> None:
-    gastos = carregar()
-    if args.mes:
-        gastos = [g for g in gastos if g.data.strftime("%Y-%m") == args.mes]
+    gastos = Banco().listar(mes=args.mes)
 
     if not gastos:
         print("Nenhum gasto encontrado.")

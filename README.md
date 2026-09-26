@@ -20,7 +20,8 @@ TOTAL             R$ 960,20
 - **Resumir** o total por categoria, com filtro por mês
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
-- Dados salvos localmente em JSON, fora do controle de versão
+- Dados salvos localmente num banco SQLite, fora do controle de versão
+- Quem usava a versão antiga (JSON) tem os gastos importados automaticamente
 
 ## Instalação
 
@@ -65,7 +66,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-A suíte cobre o modelo de dados, a leitura e gravação em arquivo e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo) e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -73,7 +74,7 @@ A suíte cobre o modelo de dados, a leitura e gravação em arquivo e o fluxo co
 controle-gastos/
 ├── gastos/
 │   ├── __main__.py       # linha de comando (argparse)
-│   ├── armazenamento.py  # salvar e carregar em JSON
+│   ├── armazenamento.py  # banco SQLite (sqlite3, SQL à mão)
 │   └── modelo.py         # a classe Gasto
 └── tests/                # testes com pytest
 ```
@@ -81,14 +82,17 @@ controle-gastos/
 ## Decisões técnicas
 
 - **`Decimal` em vez de `float` para dinheiro:** `float` acumula erros de arredondamento (`0.1 + 0.2 = 0.30000000000000004`); `Decimal` faz contas exatas.
-- **Biblioteca padrão apenas:** `argparse`, `json`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas.
+- **SQLite com o `sqlite3` da biblioteca padrão:** um banco de verdade num único arquivo, sem servidor e sem instalar nada. O SQL é escrito à mão, com marcadores (`?`) para evitar SQL injection.
+- **Valor guardado como `TEXT`, não `REAL`:** o `REAL` do SQLite é um `float` e traria de volta os erros de centavos; em texto (`"45.90"`), o `Decimal` volta exato. Há um teste que falha se a coluna virar `REAL`.
+- **Migração sem perder dados:** ao abrir o banco, um `gastos.json` antigo é importado numa única transação e renomeado para `gastos.json.migrado` (backup). Se algo falhar, nada fica importado pela metade.
+- **Biblioteca padrão apenas:** `argparse`, `sqlite3`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas.
 - **Caminho do arquivo como parâmetro:** permite que os testes usem arquivos temporários, isolados dos dados reais.
 - **Dados fora do Git:** a pasta `dados/` está no `.gitignore`, então informações financeiras pessoais nunca vão para o repositório.
 
 ## Próximos passos
 
 - [ ] Editar e remover gastos
-- [ ] Migrar o armazenamento para SQLite
+- [x] Migrar o armazenamento para SQLite
 - [ ] Exportar para CSV
 - [ ] Gráficos de gastos por mês
 - [ ] Versão web com API REST (FastAPI)
