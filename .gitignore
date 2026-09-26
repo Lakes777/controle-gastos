@@ -8,3 +8,6 @@ __pycache__/
 
 # Dados pessoais (não vão pro GitHub)
 dados/
+
+# Planilhas exportadas (têm dados pessoais)
+*.csv
