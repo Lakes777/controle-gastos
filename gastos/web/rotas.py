@@ -5,12 +5,13 @@
 /orcamentos: limite mensal por categoria e a situação do mês.
 /recorrentes: gastos lançados sozinhos todo mês.
 /exportar: baixa os gastos em planilha do Excel (.xlsx) ou CSV.
+/importar: lê o CSV do Nubank, mostra a prévia e salva os gastos revisados.
 """
 
 import io
 from collections.abc import Iterator
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -20,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from gastos.armazenamento import Banco
 from gastos.exportacao import escrever_csv, escrever_xlsx
 from gastos.grafico import somar_por_categoria
+from gastos.importacao import FormatoDesconhecido, LinhaInvalida, ler_nubank
 from gastos.modelo import Gasto
 from gastos.orcamento import Situacao, calcular
 from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
@@ -27,6 +29,11 @@ from gastos.web.banco_postgres import BancoPostgres
 from gastos.web.demo import LIMITE_GASTOS, LIMITE_RECORRENTES
 from gastos.web.modelos import (
     PADRAO_MES,
+    IgnoradoNaImportacao,
+    ItemImportado,
+    PedidoImportacao,
+    PreviaImportacao,
+    ResultadoImportacao,
     GastoAtualizacao,
     GastoNovo,
     GastoSalvo,
@@ -42,6 +49,7 @@ roteador_gastos = APIRouter(prefix="/gastos", tags=["gastos"])
 roteador_relatorios = APIRouter(tags=["relatórios"])
 roteador_orcamentos = APIRouter(prefix="/orcamentos", tags=["orçamentos"])
 roteador_recorrentes = APIRouter(prefix="/recorrentes", tags=["recorrentes"])
+roteador_importacao = APIRouter(prefix="/importar", tags=["importação"])
 
 # As rotas funcionam com qualquer um dos dois: os métodos têm os mesmos nomes.
 QualquerBanco = Banco | BancoPostgres
@@ -331,3 +339,127 @@ def remover_recorrente(recorrente_id: int, banco: QualquerBanco = Depends(pegar_
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, f"Nenhum gasto recorrente com o número {recorrente_id}"
         )
+
+
+# ---------- Importação do Nubank ----------
+
+TAMANHO_MAXIMO_CSV = 2_000_000  # 2 MB: um extrato de anos ainda cabe com folga
+
+CORPO_CSV = {
+    "requestBody": {
+        "required": True,
+        "content": {"text/csv": {"schema": {"type": "string"}}},
+        "description": "O conteúdo do CSV baixado do Nubank (fatura do cartão ou extrato da conta)",
+    }
+}
+
+
+async def ler_csv(request: Request) -> str:
+    """Lê o CSV enviado no corpo do pedido, como texto.
+
+    O arquivo vai como texto puro (a página lê o arquivo no navegador), então não
+    é preciso formulário com upload (multipart) nem biblioteca a mais.
+    """
+    corpo = await request.body()
+    if len(corpo) > TAMANHO_MAXIMO_CSV:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE, "Arquivo grande demais (o máximo é 2 MB)"
+        )
+    try:
+        return corpo.decode("utf-8-sig")  # aceita com ou sem a marca BOM no começo
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "O arquivo não está em UTF-8. Baixe o CSV de novo pelo Nubank.",
+        )
+
+
+@roteador_importacao.post(
+    "/previa",
+    openapi_extra=CORPO_CSV,
+    responses={
+        413: {"description": "Arquivo grande demais"},
+        422: {"description": "Não é um CSV do Nubank"},
+    },
+)
+def previa(
+    texto: str = Depends(ler_csv), banco: QualquerBanco = Depends(pegar_banco)
+) -> PreviaImportacao:
+    """Mostra o que seria importado, sem salvar nada."""
+    try:
+        extrato = ler_nubank(io.StringIO(texto, newline=""))
+    except (FormatoDesconhecido, LinhaInvalida) as erro:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Nada foi importado. {erro}")
+
+    ja_importadas = banco.origens_existentes()
+    novos = [
+        ItemImportado(
+            origem=origem,
+            valor=gasto.valor,
+            categoria=gasto.categoria,
+            descricao=gasto.descricao[:200],
+            data=gasto.data,
+        )
+        for gasto, origem in extrato.itens
+        if origem not in ja_importadas
+    ]
+    return PreviaImportacao(
+        formato=extrato.formato,
+        novos=novos,
+        repetidos=len(extrato.itens) - len(novos),
+        ignorados=[
+            IgnoradoNaImportacao(data=i.data, descricao=i.descricao, valor=i.valor, motivo=i.motivo)
+            for i in extrato.ignorados
+        ],
+    )
+
+
+@roteador_importacao.post("", responses={403: {"description": "Limite da demo"}})
+def importar(
+    pedido: PedidoImportacao, request: Request, banco: QualquerBanco = Depends(pegar_banco)
+) -> ResultadoImportacao:
+    """Salva os gastos revisados na prévia (com a categoria que o usuário escolheu).
+
+    Tudo numa transação só; um gasto cuja origem já está no banco é pulado.
+    """
+    if request.app.state.demo is not None:
+        if len(banco.listar()) + len(pedido.itens) > LIMITE_GASTOS:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                f"A demonstração aceita até {LIMITE_GASTOS} gastos. Remova alguns para importar.",
+            )
+    itens = [
+        (Gasto(item.valor, item.categoria, item.descricao, item.data), item.origem)
+        for item in pedido.itens
+    ]
+    importados = banco.importar(itens)
+    return ResultadoImportacao(importados=len(importados), repetidos=len(itens) - len(importados))
+
+
+# (dias atrás, descrição, valor) da fatura de exemplo; valores negativos são pagamento e estorno.
+FATURA_DE_EXEMPLO = [
+    (1, "Supermercado Condor", "184.37"),
+    (2, "Uber *Trip", "23.59"),
+    (2, "Uber *Trip", "23.59"),
+    (4, "Ifood *Restaurante", "47.80"),
+    (6, "Netflix.com", "55.90"),
+    (8, "Drogaria Raia", "32.45"),
+    (9, "Pagamento recebido", "-600.00"),
+    (11, "Steam Games", "79.99"),
+    (12, "Estorno de compra", "-15.00"),
+    (14, "Posto Ipiranga", "150.00"),
+]
+
+
+@roteador_importacao.get("/exemplo.csv", response_class=Response)
+def exemplo(dia: date = Depends(hoje)) -> Response:
+    """Uma fatura do cartão de mentira, no formato do Nubank, para testar a importação."""
+    linhas = ["date,title,amount"] + [
+        f"{dia - timedelta(days=dias):%Y-%m-%d},{descricao},{valor}"
+        for dias, descricao, valor in FATURA_DE_EXEMPLO
+    ]
+    return Response(
+        "\n".join(linhas) + "\n",
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="Nubank_exemplo.csv"'},
+    )

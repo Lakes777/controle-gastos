@@ -302,3 +302,103 @@ def test_pagina_inicial_e_arquivos_do_front(cliente):
     assert "Controle de Gastos" in pagina.text
     for arquivo in ["app.js", "estilo.css"]:
         assert cliente.get(f"/static/{arquivo}").status_code == 200
+
+
+# ---------- Importação do Nubank ----------
+
+FATURA = """date,title,amount
+2026-09-05,Uber *Trip,23.59
+2026-09-05,Uber *Trip,23.59
+2026-09-06,Pagamento recebido,-500.00
+2026-09-07,Netflix.com,"55,90"
+"""
+
+EXTRATO_CONTA = """Data,Valor,Identificador,Descrição
+01/09/2026,-45.90,id-1,Compra no débito - SUPERMERCADO CONDOR
+02/09/2026,2500.00,id-2,Transferência recebida pelo Pix - EMPRESA
+05/09/2026,-1200.00,id-3,Pagamento de fatura
+"""
+
+
+def previa(cliente, texto):
+    return cliente.post("/importar/previa", content=texto.encode(), headers={"Content-Type": "text/csv"})
+
+
+def test_previa_da_fatura_nao_salva_nada(cliente):
+    resposta = previa(cliente, FATURA)
+
+    assert resposta.status_code == 200
+    dados = resposta.json()
+    assert dados["formato"] == "fatura do cartão"
+    assert [(n["data"], n["valor"], n["categoria"]) for n in dados["novos"]] == [
+        ("2026-09-05", "23.59", "transporte"),
+        ("2026-09-05", "23.59", "transporte"),  # duas corridas iguais no mesmo dia são duas
+        ("2026-09-07", "55.90", "assinaturas"),
+    ]
+    assert dados["repetidos"] == 0
+    assert [(i["valor"], i["motivo"]) for i in dados["ignorados"]] == [("-500.00", "pagamento ou estorno")]
+    assert cliente.get("/gastos").json() == []
+
+
+def test_previa_do_extrato_da_conta(cliente):
+    dados = previa(cliente, EXTRATO_CONTA).json()
+    assert dados["formato"] == "extrato da conta"
+    assert [n["descricao"] for n in dados["novos"]] == ["Compra no débito - SUPERMERCADO CONDOR"]
+    assert len(dados["ignorados"]) == 2
+
+
+def test_importar_com_categoria_corrigida_e_sem_repetir(cliente):
+    novos = previa(cliente, FATURA).json()["novos"]
+    novos[2]["categoria"] = "Lazer"  # o usuário corrigiu na prévia
+
+    assert cliente.post("/importar", json={"itens": novos}).json() == {"importados": 3, "repetidos": 0}
+    assert [g["categoria"] for g in cliente.get("/gastos").json()] == ["transporte", "transporte", "lazer"]
+
+    # O mesmo arquivo de novo: a prévia já mostra que tudo foi importado.
+    dados = previa(cliente, FATURA).json()
+    assert (dados["novos"], dados["repetidos"]) == ([], 3)
+    # E mesmo que a página mande de novo, nada se repete.
+    assert cliente.post("/importar", json={"itens": novos}).json() == {"importados": 0, "repetidos": 3}
+    assert len(cliente.get("/gastos").json()) == 3
+
+
+def test_importar_valida_os_itens(cliente):
+    item = {"origem": "x", "valor": "-5", "categoria": "x", "data": "2026-09-01"}
+    assert cliente.post("/importar", json={"itens": [item]}).status_code == 422
+    assert cliente.post("/importar", json={"itens": [{**item, "valor": "5", "origem": ""}]}).status_code == 422
+    assert cliente.get("/gastos").json() == []
+
+
+@pytest.mark.parametrize(
+    "conteudo, trecho",
+    [
+        (b"nome,idade\nana,30\n", "Não parece um CSV do Nubank"),
+        ("date,title,amount\n2026-09-01,Uber,abc\n".encode(), "linha 2"),
+        ("date,title,amount\n2026-09-01,Café,5\n".encode("latin-1"), "UTF-8"),
+    ],
+)
+def test_previa_recusa_arquivo_invalido(cliente, conteudo, trecho):
+    resposta = cliente.post("/importar/previa", content=conteudo)
+    assert resposta.status_code == 422
+    assert trecho in resposta.json()["detail"]
+
+
+def test_previa_recusa_arquivo_grande(cliente, monkeypatch):
+    monkeypatch.setattr("gastos.web.rotas.TAMANHO_MAXIMO_CSV", 10)
+    assert previa(cliente, FATURA).status_code == 413
+
+
+def test_csv_com_bom_do_excel(cliente):
+    resposta = cliente.post("/importar/previa", content=FATURA.encode("utf-8-sig"))
+    assert len(resposta.json()["novos"]) == 3
+
+
+def test_csv_de_exemplo_importa_certinho(cliente):
+    exemplo = cliente.get("/importar/exemplo.csv")
+    assert exemplo.headers["content-disposition"] == 'attachment; filename="Nubank_exemplo.csv"'
+
+    dados = previa(cliente, exemplo.text).json()
+
+    assert len(dados["novos"]) == 8 and len(dados["ignorados"]) == 2
+    assert max(n["data"] for n in dados["novos"]) == "2026-09-25"  # datas relativas a hoje
+    assert {n["categoria"] for n in dados["novos"]} >= {"mercado", "transporte", "assinaturas"}

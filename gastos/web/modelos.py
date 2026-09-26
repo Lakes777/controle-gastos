@@ -127,3 +127,40 @@ class RecorrenteSalvo(BaseModel):
     descricao: str
     dia: int
     proxima_data: date
+
+
+class ItemImportado(BaseModel):
+    """Um gasto do extrato: na prévia (sugestão) e no pedido de importação (revisado)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    origem: str = Field(
+        min_length=1, max_length=300, description="Identifica a linha do extrato (evita repetir)"
+    )
+    valor: Reais
+    categoria: Categoria
+    descricao: Descricao = ""
+    data: date
+
+
+class IgnoradoNaImportacao(BaseModel):
+    data: date
+    descricao: str
+    valor: ReaisResposta
+    motivo: str
+
+
+class PreviaImportacao(BaseModel):
+    formato: str = Field(description="fatura do cartão ou extrato da conta")
+    novos: list[ItemImportado] = Field(description="Ainda não importados; a categoria é um palpite")
+    repetidos: int = Field(description="Já importados antes (ficam de fora)")
+    ignorados: list[IgnoradoNaImportacao] = Field(description="Não são gastos, com o motivo")
+
+
+class PedidoImportacao(BaseModel):
+    itens: list[ItemImportado] = Field(max_length=2000)
+
+
+class ResultadoImportacao(BaseModel):
+    importados: int
+    repetidos: int = Field(description="Já estavam no banco e foram pulados")

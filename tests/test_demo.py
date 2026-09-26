@@ -206,3 +206,20 @@ def test_quantidade_maxima_de_contas(conectar_postgres):
         with demo.abrir(letra * 32, HOJE):
             pass
     assert contar(conectar_postgres, "contas") == 3
+
+
+def test_importar_respeita_o_limite_da_demo(cliente, monkeypatch):
+    monkeypatch.setattr("gastos.web.rotas.LIMITE_GASTOS", len(cliente.get("/gastos").json()) + 1)
+    itens = [
+        {"origem": f"o{i}", "valor": "1", "categoria": "x", "data": "2026-09-01"} for i in range(2)
+    ]
+    resposta = cliente.post("/importar", json={"itens": itens})
+    assert resposta.status_code == 403
+    assert cliente.post("/importar", json={"itens": itens[:1]}).json()["importados"] == 1
+
+
+def test_importar_na_demo_com_postgres(cliente):
+    exemplo = cliente.get("/importar/exemplo.csv").content
+    novos = cliente.post("/importar/previa", content=exemplo).json()["novos"]
+    assert cliente.post("/importar", json={"itens": novos}).json() == {"importados": 8, "repetidos": 0}
+    assert cliente.post("/importar/previa", content=exemplo).json()["repetidos"] == 8

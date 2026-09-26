@@ -10,6 +10,7 @@ from gastos.armazenamento import Banco
 from gastos.web.demo import Demonstracao
 from gastos.web.rotas import (
     roteador_gastos,
+    roteador_importacao,
     roteador_orcamentos,
     roteador_recorrentes,
     roteador_relatorios,
@@ -34,6 +35,7 @@ def criar_app(caminho_banco: Path | str | None = None, demo: Demonstracao | None
     app.include_router(roteador_relatorios)
     app.include_router(roteador_orcamentos)
     app.include_router(roteador_recorrentes)
+    app.include_router(roteador_importacao)
 
     # A página (HTML, CSS e JS) é servida pela própria API: um só servidor para tudo.
     app.mount("/static", StaticFiles(directory=PASTA_STATIC), name="static")
