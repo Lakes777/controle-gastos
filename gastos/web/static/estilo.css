@@ -1,18 +1,18 @@
-/* Mesmas cores e fontes do portfólio (lakes777.github.io) */
+/* Tons de cinza-grafite, neutros e sóbrios; o azul do portfólio fica só nos destaques */
 :root {
-  --bg: #0b1418;
-  --surface: #14262e;
-  --surface-hover: #1a313b;
-  --border: #23404b;
+  --bg: #0d0e10;
+  --surface: #16171a;
+  --surface-hover: #1e1f23;
+  --border: #2a2c31;
 
-  --text: #e6f1f5;
-  --text-muted: #93aab3;
+  --text: #e4e5e7;
+  --text-muted: #8e9199;
 
   --accent: #4fc3f7;
   --accent-dark: #0288d1;
   --atencao: #ffd54f;
   --perigo: #ef9a9a;
-  --gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  --topo: #121315;
 
   --font: "Inter", system-ui, sans-serif;
   --mono: "Fira Code", monospace;
@@ -53,7 +53,7 @@ body {
 
 /* ---------- Topo ---------- */
 .topo {
-  background: var(--gradient);
+  background: var(--topo);
   border-bottom: 1px solid var(--border);
 }
 
