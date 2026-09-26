@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle de Gastos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/estilo.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topo">
+    <div class="container topo__conteudo">
+      <h1 class="topo__titulo">💰 Controle de Gastos</h1>
+      <a class="topo__link" href="/docs">Documentação da API</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="periodo">
+      <label class="periodo__rotulo" for="mes">Período</label>
+      <select class="campo" id="mes"></select>
+    </div>
+
+    <!-- Números do período: preenchidos pelo app.js com GET /resumo -->
+    <section class="numeros" id="numeros" aria-label="Resumo do período"></section>
+
+    <div class="colunas">
+      <div class="coluna">
+        <section class="bloco" aria-labelledby="titulo-form">
+          <h2 class="bloco__titulo" id="titulo-form">Novo gasto</h2>
+          <form class="formulario" id="form-gasto" novalidate>
+            <label class="rotulo">Valor (R$)
+              <input class="campo" id="valor" inputmode="decimal" autocomplete="off"
+                     placeholder="45,90" required>
+            </label>
+            <label class="rotulo">Categoria
+              <input class="campo" id="categoria" list="lista-categorias" maxlength="40"
+                     autocomplete="off" placeholder="mercado" required>
+            </label>
+            <label class="rotulo rotulo--largo">Descrição (opcional)
+              <input class="campo" id="descricao" maxlength="200" autocomplete="off"
+                     placeholder="compras da semana">
+            </label>
+            <label class="rotulo">Data
+              <input class="campo" id="data" type="date" required>
+            </label>
+            <div class="formulario__acoes">
+              <button class="botao" type="submit" id="botao-salvar">Adicionar</button>
+              <button class="botao botao--fantasma" type="button" id="botao-cancelar" hidden>Cancelar</button>
+            </div>
+          </form>
+          <datalist id="lista-categorias"></datalist>
+        </section>
+
+        <section class="bloco" aria-labelledby="titulo-lista">
+          <div class="bloco__cabecalho">
+            <h2 class="bloco__titulo" id="titulo-lista">Gastos</h2>
+            <div class="exportar">
+              <span class="exportar__rotulo">Baixar:</span>
+              <a class="botao botao--pequeno botao--fantasma" id="exportar-xlsx" download>Excel (.xlsx)</a>
+              <a class="botao botao--pequeno botao--fantasma" id="exportar-csv" download>CSV</a>
+            </div>
+          </div>
+          <p class="aviso" id="aviso-lista" hidden></p>
+          <table class="tabela" id="tabela">
+            <thead>
+              <tr>
+                <th scope="col">Data</th>
+                <th scope="col">Descrição</th>
+                <th scope="col">Categoria</th>
+                <th scope="col" class="tabela__valor">Valor</th>
+                <th scope="col"><span class="invisivel">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody id="linhas"></tbody>
+          </table>
+        </section>
+      </div>
+
+      <aside class="coluna">
+        <section class="bloco" aria-labelledby="titulo-categorias">
+          <h2 class="bloco__titulo" id="titulo-categorias">Por categoria</h2>
+          <div class="barras" id="barras"></div>
+        </section>
+
+        <section class="bloco" aria-labelledby="titulo-orcamento">
+          <h2 class="bloco__titulo" id="titulo-orcamento">Orçamento do mês</h2>
+          <p class="bloco__nota" id="nota-orcamento"></p>
+          <div class="orcamentos" id="orcamentos"></div>
+          <form class="linha-form" id="form-orcamento">
+            <input class="campo campo--pequeno" id="orcamento-categoria" list="lista-categorias"
+                   maxlength="40" placeholder="categoria" aria-label="Categoria do orçamento" required>
+            <input class="campo campo--pequeno" id="orcamento-limite" inputmode="decimal"
+                   placeholder="limite (R$)" aria-label="Limite por mês" required>
+            <button class="botao botao--pequeno" type="submit">Definir</button>
+          </form>
+        </section>
+
+        <section class="bloco" aria-labelledby="titulo-recorrentes">
+          <h2 class="bloco__titulo" id="titulo-recorrentes">Gastos recorrentes</h2>
+          <p class="bloco__nota">Lançados sozinhos todo mês quando o dia chega (aluguel, internet, assinaturas).</p>
+          <ul class="recorrentes" id="recorrentes"></ul>
+          <form class="linha-form" id="form-recorrente">
+            <input class="campo campo--pequeno" id="recorrente-valor" inputmode="decimal"
+                   placeholder="valor (R$)" aria-label="Valor do recorrente" required>
+            <input class="campo campo--pequeno" id="recorrente-categoria" list="lista-categorias"
+                   maxlength="40" placeholder="categoria" aria-label="Categoria do recorrente" required>
+            <input class="campo campo--pequeno campo--dia" id="recorrente-dia" type="number"
+                   min="1" max="31" placeholder="dia" aria-label="Dia do mês" required>
+            <button class="botao botao--pequeno" type="submit">Criar</button>
+          </form>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <div class="mensagem" id="mensagem" role="status" hidden></div>
+</body>
+</html>

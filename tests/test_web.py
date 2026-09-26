@@ -294,3 +294,11 @@ def test_remover_recorrente_mantem_os_gastos_lancados(cliente):
 
 def test_saude(cliente):
     assert cliente.get("/saude").json() == {"status": "ok"}
+
+
+def test_pagina_inicial_e_arquivos_do_front(cliente):
+    pagina = cliente.get("/")
+    assert pagina.status_code == 200
+    assert "Controle de Gastos" in pagina.text
+    for arquivo in ["app.js", "estilo.css"]:
+        assert cliente.get(f"/static/{arquivo}").status_code == 200

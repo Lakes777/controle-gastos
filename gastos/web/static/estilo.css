@@ -1,0 +1,564 @@
+/* Mesmas cores e fontes do portfólio (lakes777.github.io) */
+:root {
+  --bg: #0b1418;
+  --surface: #14262e;
+  --surface-hover: #1a313b;
+  --border: #23404b;
+
+  --text: #e6f1f5;
+  --text-muted: #93aab3;
+
+  --accent: #4fc3f7;
+  --accent-dark: #0288d1;
+  --atencao: #ffd54f;
+  --perigo: #ef9a9a;
+  --gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+
+  --font: "Inter", system-ui, sans-serif;
+  --mono: "Fira Code", monospace;
+  --radius: 14px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.5;
+}
+
+.container {
+  width: min(1100px, 100% - 32px);
+  margin-inline: auto;
+}
+
+/* Sem isto, um display do CSS (como o do .botao) venceria o atributo hidden */
+[hidden] {
+  display: none !important;
+}
+
+.invisivel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* ---------- Topo ---------- */
+.topo {
+  background: var(--gradient);
+  border-bottom: 1px solid var(--border);
+}
+
+.topo__conteudo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 20px;
+}
+
+.topo__titulo {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.topo__link {
+  color: var(--accent);
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.topo__link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Período e números ---------- */
+.periodo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.periodo__rotulo {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.numeros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-block: 16px 32px;
+}
+
+.numero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.numero__valor {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.numero__rotulo {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ---------- Colunas ---------- */
+.colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.bloco {
+  margin-bottom: 36px;
+}
+
+.bloco__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.bloco__cabecalho .bloco__titulo {
+  margin: 0;
+}
+
+.bloco__titulo {
+  font-size: 1.15rem;
+  margin: 0 0 12px;
+}
+
+.bloco__nota {
+  margin: -6px 0 12px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.bloco__nota:empty {
+  display: none;
+}
+
+/* ---------- Formulários ---------- */
+.formulario {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.formulario--editando {
+  border-color: var(--accent);
+}
+
+.rotulo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.rotulo--largo {
+  grid-column: 1 / -1;
+}
+
+.formulario__acoes {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+}
+
+.linha-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.linha-form .campo {
+  flex: 1 1 90px;
+  min-width: 0;
+}
+
+.linha-form .campo--dia {
+  flex: 0 1 70px;
+}
+
+.campo {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.campo:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.campo[aria-invalid="true"] {
+  border-color: var(--perigo);
+}
+
+.campo--pequeno {
+  padding: 6px 10px;
+  font-size: 0.9rem;
+}
+
+/* Deixa o ícone do calendário claro no fundo escuro */
+.campo[type="date"] {
+  color-scheme: dark;
+}
+
+.botao {
+  display: inline-block;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  color: var(--bg);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 18px;
+  text-decoration: none;
+}
+
+.botao:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+  color: var(--text);
+}
+
+.botao--pequeno {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+}
+
+.botao--fantasma {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.botao--fantasma:hover {
+  background: var(--surface-hover);
+  border-color: var(--border);
+}
+
+.botao-texto {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+}
+
+.botao-texto:hover {
+  text-decoration: underline;
+}
+
+.botao-texto--perigo {
+  color: var(--perigo);
+}
+
+/* ---------- Exportar ---------- */
+.exportar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.exportar__rotulo {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ---------- Tabela de gastos ---------- */
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.tabela th {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 8px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabela td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.tabela tr.linha--editando td {
+  background: var(--surface-hover);
+}
+
+.tabela__data {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tabela__descricao {
+  overflow-wrap: anywhere;
+}
+
+.tabela__valor {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.tabela__acoes {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.etiqueta {
+  display: inline-block;
+  background: rgb(79 195 247 / 0.1);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--accent);
+  font-size: 0.8rem;
+  padding: 1px 10px;
+  white-space: nowrap;
+}
+
+/* ---------- Barras por categoria ---------- */
+.barras {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.barra__topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+}
+
+.barra__valor {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.barra__valor small {
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+.trilho {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.trilho__cheio {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+/* ---------- Orçamento ---------- */
+.orcamentos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.orcamento {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.orcamento__topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.orcamento__categoria {
+  font-weight: 600;
+}
+
+.orcamento__numeros {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.orcamento__rodape {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+
+/* A situação sempre aparece escrita; a cor só reforça. */
+.orcamento--atencao .trilho__cheio { background: var(--atencao); }
+.orcamento--atencao .orcamento__aviso { color: var(--atencao); }
+.orcamento--estourou .trilho__cheio { background: var(--perigo); }
+.orcamento--estourou .orcamento__aviso { color: var(--perigo); font-weight: 600; }
+.orcamento--estourou { border-color: var(--perigo); }
+
+/* ---------- Recorrentes ---------- */
+.recorrentes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recorrente {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.9rem;
+}
+
+.recorrente__info small {
+  display: block;
+  color: var(--text-muted);
+}
+
+/* ---------- Avisos ---------- */
+.aviso {
+  color: var(--text-muted);
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.mensagem {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 16px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+}
+
+.mensagem--erro {
+  border-color: var(--perigo);
+  color: var(--perigo);
+}
+
+/* ---------- Telas menores ---------- */
+@media (max-width: 860px) {
+  .colunas {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .topo__titulo {
+    font-size: 1.2rem;
+  }
+
+  .numeros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .numero__valor {
+    font-size: 1.2rem;
+  }
+
+  /* No celular, cada gasto vira um cartão: descrição e valor em cima, o resto embaixo */
+  .tabela thead {
+    display: none;
+  }
+
+  .tabela,
+  .tabela tbody {
+    display: block;
+  }
+
+  .tabela tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tabela td {
+    padding: 0;
+    border: none;
+  }
+
+  .tabela__descricao { grid-column: 1; grid-row: 1; }
+  .tabela td.tabela__valor { grid-column: 2; grid-row: 1; }
+  .tabela__data { grid-column: 1; grid-row: 2; font-size: 0.85rem; }
+  .tabela__categoria { grid-column: 1; grid-row: 3; }
+  .tabela__acoes { grid-column: 2; grid-row: 2 / 4; align-self: end; }
+}
