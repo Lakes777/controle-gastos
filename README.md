@@ -25,6 +25,7 @@ TOTAL             R$ 960,20
 - **Remover** um gasto pelo número
 - **Resumir** o total por categoria, com filtro por mês
 - **Gráfico** de barras no terminal, por categoria ou por mês
+- **Orçamento** mensal por categoria, com aviso de ATENÇÃO a partir de 80% e de ESTOUROU acima do limite, mostrado também ao adicionar ou editar um gasto
 - **Exportar** para planilha do Excel (`.xlsx`) ou CSV, geral ou de um mês; o `.xlsx` sai com valores em R$, datas de verdade e linha de total com fórmula
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
@@ -66,6 +67,12 @@ python -m gastos grafico                   # por categoria, da maior para a meno
 python -m gastos grafico --mes 2026-09     # só um mês
 python -m gastos grafico --por mes         # evolução mês a mês
 
+# Orçamento mensal por categoria
+python -m gastos orcamento definir mercado 500   # cria ou troca o limite
+python -m gastos orcamento                       # situação do mês atual
+python -m gastos orcamento --mes 2026-08         # de outro mês
+python -m gastos orcamento remover mercado
+
 # Exportar (o formato vem da extensão); não sobrescreve arquivo existente sem pedir
 python -m gastos exportar gastos.xlsx                   # planilha do Excel
 python -m gastos exportar setembro.xlsx --mes 2026-09
@@ -94,6 +101,24 @@ uber    ███████████████████████▋
 TOTAL                                        R$ 53,59
 ```
 
+Exemplo de orçamento:
+
+```
+Orçamento de set/2026
+
+lazer            R$ 95,00 de R$ 80,00       119%  ██████████  ESTOUROU em R$ 15,00
+mercado         R$ 420,00 de R$ 500,00       84%  ████████▍░  ATENÇÃO: sobram R$ 80,00
+uber             R$ 10,00 de R$ 50,00        20%  ██░░░░░░░░  sobram R$ 40,00
+```
+
+Com orçamento definido, adicionar ou editar um gasto já mostra como ficou o mês:
+
+```
+$ python -m gastos adicionar 120 mercado
+Gasto adicionado: R$ 120,00 em mercado
+Orçamento de mercado em set/2026: R$ 420,00 de R$ 500,00 (84%) - ATENÇÃO: sobram R$ 80,00
+```
+
 ## Testes
 
 ```bash
@@ -103,7 +128,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -115,6 +140,7 @@ controle-gastos/
 │   ├── exportacao.py     # exportar para .xlsx e CSV
 │   ├── formatacao.py     # valores em reais (R$ 1.234,50)
 │   ├── grafico.py        # gráfico de barras no terminal
+│   ├── orcamento.py      # situação do orçamento (ok, atenção, estourou)
 │   └── modelo.py         # a classe Gasto
 └── tests/                # testes com pytest
 ```
@@ -130,6 +156,9 @@ controle-gastos/
 - **`.xlsx` escrito à mão, sem bibliotecas:** um `.xlsx` é um `.zip` com arquivos XML dentro, então `zipfile` e `xml` da biblioteca padrão bastam. O CSV depende das configurações regionais de quem abre (num Windows em inglês, o Excel separa as colunas na vírgula e quebra `30,00` ao meio); no `.xlsx`, o valor é guardado como número e a data como data, e a planilha abre certa em qualquer idioma. O arquivo gerado foi conferido abrindo no Excel real.
 - **Proteção contra CSV injection:** texto que começa com `=`, `+`, `-` ou `@` seria executado como fórmula pelo Excel; ele é exportado com um `'` na frente, e aparece só como texto.
 - **Gráfico com caracteres Unicode, sem matplotlib:** o programa vive no terminal, então o gráfico também. Os blocos `▏▎▍▌▋▊▉█` dão precisão de 1/8 de caractere, e um gasto pequeno sempre aparece com pelo menos `▏`. Categorias vêm da maior para a menor (fica fácil comparar); meses, em ordem cronológica.
+- **Orçamento decidido pelos valores exatos:** R$ 500,01 de R$ 500,00 aparece como 100% depois de arredondado, mas já estourou; por isso o nível é calculado comparando os valores em `Decimal`, não a porcentagem. Os casos de fronteira (79,99%, 80%, 100% e um centavo acima) têm testes.
+- **Tabela nova sem migração manual:** `CREATE TABLE IF NOT EXISTS` cria a tabela de orçamentos em bancos de versões anteriores na primeira vez que são abertos, sem mexer nos gastos.
+- **`--mes` validado e normalizado:** `2026-9` vira `2026-09` (senão não acharia nada no banco) e `setembro` é recusado com uma mensagem clara.
 - **Biblioteca padrão apenas:** `argparse`, `sqlite3`, `csv`, `zipfile`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas.
 - **Caminho do arquivo como parâmetro:** permite que os testes usem arquivos temporários, isolados dos dados reais.
 - **Dados fora do Git:** a pasta `dados/` está no `.gitignore`, então informações financeiras pessoais nunca vão para o repositório.
@@ -140,4 +169,5 @@ controle-gastos/
 - [x] Migrar o armazenamento para SQLite
 - [x] Exportar para planilha do Excel (.xlsx) e CSV
 - [x] Gráficos de gastos por categoria e por mês
+- [x] Orçamento mensal por categoria com alertas
 - [ ] Versão web com API REST (FastAPI)

@@ -37,8 +37,22 @@ def mes_valido(texto: str) -> str:
     return f"{data.year:04d}-{data.month:02d}"
 
 
+def avisar_orcamento(banco: Banco, gasto: Gasto) -> None:
+    """Se a categoria do gasto tem orçamento, mostra como ficou o mês desse gasto."""
+    limite = banco.listar_orcamentos().get(gasto.categoria)
+    if limite is None:
+        return
+    [situacao] = calcular(banco.listar(mes=f"{gasto.data:%Y-%m}"), {gasto.categoria: limite})
+    print(
+        f"Orçamento de {situacao.categoria} em {nome_do_mes(gasto.data.year, gasto.data.month)}: "
+        f"{formatar_reais(situacao.gasto)} de {formatar_reais(situacao.limite)} "
+        f"({situacao.porcentagem}%) - {situacao.aviso()}"
+    )
+
+
 def cmd_adicionar(args: argparse.Namespace) -> None:
-    novo = Banco().adicionar(
+    banco = Banco()
+    novo = banco.adicionar(
         Gasto(
             valor=args.valor,
             categoria=args.categoria.lower(),
@@ -47,6 +61,7 @@ def cmd_adicionar(args: argparse.Namespace) -> None:
         )
     )
     print(f"Gasto adicionado: {formatar_reais(novo.valor)} em {novo.categoria}")
+    avisar_orcamento(banco, novo)
 
 
 def cmd_listar(args: argparse.Namespace) -> None:
@@ -89,6 +104,7 @@ def cmd_editar(args: argparse.Namespace) -> None:
         f"Gasto {editado.id} atualizado: {formatar_reais(editado.valor)} em "
         f"{editado.categoria} ({editado.data:%d/%m/%Y})"
     )
+    avisar_orcamento(banco, editado)
 
 
 def cmd_exportar(args: argparse.Namespace) -> None:

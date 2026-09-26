@@ -320,3 +320,39 @@ def test_remover_orcamento_inexistente_da_erro(tmp_path, monkeypatch):
         rodar(monkeypatch, "orcamento", "remover", "lazer")
 
     assert "não tem orçamento" in str(erro.value)
+
+
+def test_adicionar_avisa_como_ficou_o_orcamento_do_mes(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "orcamento", "definir", "mercado", "500")
+    rodar(monkeypatch, "adicionar", "300", "mercado", "--data", "2026-09-01")
+    rodar(monkeypatch, "adicionar", "999", "mercado", "--data", "2026-08-15")  # outro mês
+    capsys.readouterr()
+
+    rodar(monkeypatch, "adicionar", "120", "mercado", "--data", "2026-09-10")
+
+    assert capsys.readouterr().out.splitlines()[-1] == (
+        "Orçamento de mercado em set/2026: R$ 420,00 de R$ 500,00 (84%) "
+        "- ATENÇÃO: sobram R$ 80,00"
+    )
+
+
+def test_adicionar_em_categoria_sem_orcamento_nao_avisa(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "orcamento", "definir", "mercado", "500")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "adicionar", "50", "lazer")
+
+    assert "Orçamento" not in capsys.readouterr().out
+
+
+def test_editar_avisa_quando_o_orcamento_estoura(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "orcamento", "definir", "lazer", "80")
+    rodar(monkeypatch, "adicionar", "50", "lazer", "--data", "2026-09-10")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "editar", "1", "--valor", "95")
+
+    assert "ESTOUROU em R$ 15,00" in capsys.readouterr().out
