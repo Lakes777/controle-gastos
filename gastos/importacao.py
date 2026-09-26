@@ -31,7 +31,7 @@ SEM_CATEGORIA = "outros"
 
 # Saídas da conta que não são gastos: somá-las contaria o mesmo dinheiro duas vezes.
 IGNORAR_NA_CONTA = [
-    ("pagamento de fatura", "pagamento da fatura (as compras vêm da fatura do cartão)"),
+    ("pagamento de fatura", "pagamento da fatura; as compras vêm da fatura do cartão"),
     ("rdb", "dinheiro guardado/investido, não é gasto"),
     ("caixinha", "dinheiro guardado/investido, não é gasto"),
 ]

@@ -473,3 +473,85 @@ def test_recorrente_remover_inexistente_da_erro(tmp_path, monkeypatch):
 def test_dia_do_mes_rejeita_invalidos(texto):
     with pytest.raises(argparse.ArgumentTypeError):
         dia_do_mes(texto)
+
+
+# --- Importar extrato do Nubank ---
+
+FATURA_NUBANK = """date,title,amount
+2026-09-05,Uber *Trip,23.59
+2026-09-06,Pagamento recebido,-500.00
+2026-09-07,Netflix.com,55.90
+"""
+
+
+def test_importar_simular_nao_salva_nada(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "fatura.csv").write_text(FATURA_NUBANK, encoding="utf-8")
+
+    rodar(monkeypatch, "importar", "fatura.csv", "--simular")
+    saida = capsys.readouterr().out
+    assert "Arquivo reconhecido: fatura do cartão do Nubank" in saida
+    assert "+ 05/09/2026      R$ 23,59  transporte    Uber *Trip" in saida
+    assert "Pagamento recebido (ignorado: pagamento ou estorno)" in saida
+    assert "2 gasto(s) seriam importados" in saida and "Nada foi salvo" in saida
+
+    rodar(monkeypatch, "listar")
+    assert "Nenhum gasto registrado" in capsys.readouterr().out
+
+
+def test_importar_duas_vezes_nao_duplica(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "fatura.csv").write_text(FATURA_NUBANK, encoding="utf-8-sig")  # com BOM
+
+    rodar(monkeypatch, "importar", "fatura.csv")
+    assert "2 gasto(s) importado(s), 0 já importado(s) antes, 1 ignorado(s)" in (
+        capsys.readouterr().out
+    )
+
+    rodar(monkeypatch, "importar", "fatura.csv")
+    saida = capsys.readouterr().out
+    assert "0 gasto(s) importado(s), 2 já importado(s) antes" in saida
+    assert "+ " not in saida
+
+    rodar(monkeypatch, "resumo")
+    assert "R$ 79,49" in capsys.readouterr().out  # 23,59 + 55,90, uma vez só
+
+
+@pytest.mark.parametrize(
+    "conteudo, mensagem",
+    [
+        ("numero;data;valor\n1;23/09/2026;30,00\n", "Não parece um CSV do Nubank"),
+        ("date,title,amount\n2026-09-05,Uber,23.59\n2026-99-99,Erro,1\n", "linha 3"),
+    ],
+)
+def test_importar_arquivo_com_problema_nao_importa_nada(
+    tmp_path, monkeypatch, capsys, conteudo, mensagem
+):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "extrato.csv").write_text(conteudo, encoding="utf-8")
+
+    with pytest.raises(SystemExit) as erro:
+        rodar(monkeypatch, "importar", "extrato.csv")
+
+    assert "Nada foi importado" in str(erro.value) and mensagem in str(erro.value)
+    rodar(monkeypatch, "listar")
+    assert "Nenhum gasto registrado" in capsys.readouterr().out
+
+
+def test_importar_arquivo_que_nao_existe(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit) as erro:
+        rodar(monkeypatch, "importar", "sumiu.csv")
+
+    assert "Arquivo não encontrado: sumiu.csv" in str(erro.value)
+
+
+def test_importar_arquivo_que_nao_e_utf8(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "antigo.csv").write_bytes("date,title,amount\n2026-09-05,Açaí,10\n".encode("cp1252"))
+
+    with pytest.raises(SystemExit) as erro:
+        rodar(monkeypatch, "importar", "antigo.csv")
+
+    assert "não está em UTF-8" in str(erro.value)

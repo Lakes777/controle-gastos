@@ -10,10 +10,11 @@ from gastos.armazenamento import Banco
 from gastos.exportacao import escrever_csv, escrever_xlsx
 from gastos.formatacao import formatar_reais, nome_do_mes
 from gastos.grafico import desenhar, somar_por_categoria, somar_por_mes
+from gastos.importacao import FormatoDesconhecido, LinhaInvalida, ler_nubank
 from gastos.modelo import Gasto
 from gastos.orcamento import calcular
-from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
 from gastos.orcamento import desenhar as desenhar_orcamento
+from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
 
 
 def hoje() -> date:
@@ -146,6 +147,49 @@ def cmd_exportar(args: argparse.Namespace) -> None:
     except FileExistsError:
         sys.exit(f"O arquivo {args.arquivo} já existe. Use --sobrescrever para substituí-lo.")
     print(f"{quantidade} gasto(s) exportado(s) para {args.arquivo}")
+
+
+def cmd_importar(args: argparse.Namespace) -> None:
+    try:
+        # utf-8-sig: aceita o arquivo com ou sem a marca BOM no começo.
+        with open(args.arquivo, encoding="utf-8-sig", newline="") as arquivo:
+            extrato = ler_nubank(arquivo)
+    except FileNotFoundError:
+        sys.exit(f"Arquivo não encontrado: {args.arquivo}")
+    except UnicodeDecodeError:
+        sys.exit("O arquivo não está em UTF-8. Exporte o CSV de novo pelo Nubank.")
+    except (FormatoDesconhecido, LinhaInvalida) as erro:
+        sys.exit(f"Nada foi importado. {erro}")
+
+    banco = Banco()
+    ja_importadas = banco.origens_existentes()
+    novos = [(gasto, origem) for gasto, origem in extrato.itens if origem not in ja_importadas]
+    repetidos = len(extrato.itens) - len(novos)
+
+    print(f"Arquivo reconhecido: {extrato.formato} do Nubank")
+    print()
+    for gasto, _ in novos:
+        print(
+            f"  + {gasto.data:%d/%m/%Y}  {formatar_reais(gasto.valor):>12}  "
+            f"{gasto.categoria:<12}  {gasto.descricao}"
+        )
+    for ignorado in extrato.ignorados:
+        print(
+            f"  - {ignorado.data:%d/%m/%Y}  {formatar_reais(abs(ignorado.valor)):>12}  "
+            f"{ignorado.descricao} (ignorado: {ignorado.motivo})"
+        )
+    print()
+
+    contagem = (
+        f"{repetidos} já importado(s) antes, {len(extrato.ignorados)} ignorado(s)"
+    )
+    if args.simular:
+        print(f"Simulação: {len(novos)} gasto(s) seriam importados, {contagem}. Nada foi salvo.")
+        return
+    importados = banco.importar(novos)
+    print(f"{len(importados)} gasto(s) importado(s), {contagem}")
+    if importados:
+        print("Para corrigir uma categoria: python -m gastos editar <nº> --categoria <nova>")
 
 
 def cmd_remover(args: argparse.Namespace) -> None:
@@ -298,6 +342,15 @@ def main() -> None:
         "--sobrescrever", action="store_true", help="substitui o arquivo se ele já existir"
     )
     p_exportar.set_defaults(funcao=cmd_exportar)
+
+    p_importar = subparsers.add_parser(
+        "importar", help="importa o CSV da fatura ou do extrato da conta do Nubank"
+    )
+    p_importar.add_argument("arquivo", help="o arquivo .csv baixado do Nubank")
+    p_importar.add_argument(
+        "--simular", action="store_true", help="mostra o que seria importado, sem salvar"
+    )
+    p_importar.set_defaults(funcao=cmd_importar)
 
     p_remover = subparsers.add_parser("remover", help="apaga um gasto pelo número")
     p_remover.add_argument("id", type=int, help="o número mostrado em 'listar'")
