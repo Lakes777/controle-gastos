@@ -25,6 +25,7 @@ TOTAL             R$ 960,20
 - **Remover** um gasto pelo número
 - **Resumir** o total por categoria, com filtro por mês
 - **Gráfico** de barras no terminal, por categoria ou por mês
+- **Importar o extrato do Nubank** (CSV da fatura do cartão ou da conta), com categoria adivinhada pela descrição, `--simular` e sem nunca importar o mesmo gasto duas vezes
 - **Gastos recorrentes** (aluguel, internet, assinaturas), lançados sozinhos quando o dia chega, inclusive os meses em que o programa não foi aberto
 - **Orçamento** mensal por categoria, com aviso de ATENÇÃO a partir de 80% e de ESTOUROU acima do limite, mostrado também ao adicionar ou editar um gasto
 - **Exportar** para planilha do Excel (`.xlsx`) ou CSV, geral ou de um mês; o `.xlsx` sai com valores em R$, datas de verdade e linha de total com fórmula
@@ -68,6 +69,10 @@ python -m gastos grafico                   # por categoria, da maior para a meno
 python -m gastos grafico --mes 2026-09     # só um mês
 python -m gastos grafico --por mes         # evolução mês a mês
 
+# Importar o CSV do Nubank (fatura do cartão ou extrato da conta)
+python -m gastos importar Nubank_2026-09.csv --simular   # só mostra o que entraria
+python -m gastos importar Nubank_2026-09.csv
+
 # Gastos recorrentes: lançados sozinhos quando o dia chega
 python -m gastos recorrente adicionar 1200 aluguel --dia 5
 python -m gastos recorrente adicionar 39,90 internet --dia 31      # em mês curto, cai no último dia
@@ -109,6 +114,20 @@ uber    ███████████████████████▋
 TOTAL                                        R$ 53,59
 ```
 
+Exemplo de importação do extrato da conta:
+
+```
+$ python -m gastos importar extrato.csv
+Arquivo reconhecido: extrato da conta do Nubank
+
+  + 01/09/2026      R$ 45,90  mercado       Compra no débito - SUPERMERCADO CONDOR
+  + 10/09/2026      R$ 18,50  alimentação   Compra no débito - PADARIA BELA VISTA
+  - 02/09/2026   R$ 2.500,00  Transferência recebida pelo Pix - EMPRESA (ignorado: entrada de dinheiro)
+  - 05/09/2026   R$ 1.200,00  Pagamento de fatura (ignorado: pagamento da fatura; as compras vêm da fatura do cartão)
+
+2 gasto(s) importado(s), 0 já importado(s) antes, 2 ignorado(s)
+```
+
 Quando chega o dia de um gasto recorrente, qualquer comando o lança e avisa:
 
 ```
@@ -145,7 +164,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas) e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank e o fluxo completo da linha de comando. Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -157,6 +176,7 @@ controle-gastos/
 │   ├── exportacao.py     # exportar para .xlsx e CSV
 │   ├── formatacao.py     # valores em reais (R$ 1.234,50)
 │   ├── grafico.py        # gráfico de barras no terminal
+│   ├── importacao.py     # leitura do CSV do Nubank
 │   ├── orcamento.py      # situação do orçamento (ok, atenção, estourou)
 │   ├── recorrentes.py    # regras de datas dos gastos recorrentes
 │   └── modelo.py         # a classe Gasto
@@ -175,6 +195,10 @@ controle-gastos/
 - **Proteção contra CSV injection:** texto que começa com `=`, `+`, `-` ou `@` seria executado como fórmula pelo Excel; ele é exportado com um `'` na frente, e aparece só como texto.
 - **Gráfico com caracteres Unicode, sem matplotlib:** o programa vive no terminal, então o gráfico também. Os blocos `▏▎▍▌▋▊▉█` dão precisão de 1/8 de caractere, e um gasto pequeno sempre aparece com pelo menos `▏`. Categorias vêm da maior para a menor (fica fácil comparar); meses, em ordem cronológica.
 - **Orçamento decidido pelos valores exatos:** R$ 500,01 de R$ 500,00 aparece como 100% depois de arredondado, mas já estourou; por isso o nível é calculado comparando os valores em `Decimal`, não a porcentagem. Os casos de fronteira (79,99%, 80%, 100% e um centavo acima) têm testes.
+- **Importar sem duplicar:** cada gasto importado guarda sua `origem` numa coluna com índice `UNIQUE`. No extrato da conta, é o identificador que o próprio Nubank dá; na fatura, que não tem identificador, é data + descrição + valor + um contador, para que duas compras iguais no mesmo dia (dois cafés) continuem sendo duas. Importar o mesmo arquivo de novo não repete nada.
+- **Sem contar o mesmo dinheiro duas vezes:** do extrato da conta são ignorados as entradas, o pagamento da fatura (as compras já vêm da fatura do cartão) e o dinheiro guardado em caixinhas/RDB. Tudo que é ignorado aparece na tela com o motivo.
+- **Tudo ou nada:** o arquivo inteiro é lido antes de salvar qualquer coisa; se uma linha tiver data ou valor inválido, nada é importado e a mensagem diz qual linha.
+- **Migração com `ALTER TABLE`:** bancos de versões anteriores não têm a coluna `origem`; ao abrir, o programa confere as colunas (`PRAGMA table_info`) e a acrescenta, sem mexer nos gastos.
 - **Gastos recorrentes que nunca se repetem:** cada recorrente guarda o próximo mês pendente (`proximo_mes`), que avança na mesma transação em que o gasto é inserido. Rodar o programa várias vezes no mesmo dia não duplica nada, e um gasto lançado que o usuário apagou não volta.
 - **Nada lançado para trás sem pedir:** um recorrente criado depois do dia dele começa no mês seguinte (o deste mês provavelmente já foi registrado à mão). `--desde` inclui meses passados, mas no máximo 12, para um erro de digitação como `2016` não criar 120 gastos.
 - **Datas testáveis:** a data de hoje vem de uma função `hoje()`, que os testes trocam para simular a passagem do tempo (a véspera, o dia certo, meses sem abrir o programa, dia 31 em mês de 30 e ano bissexto).
@@ -192,5 +216,6 @@ controle-gastos/
 - [x] Gráficos de gastos por categoria e por mês
 - [x] Orçamento mensal por categoria com alertas
 - [x] Gastos recorrentes lançados automaticamente
-- [ ] Importar o extrato CSV do banco
+- [x] Importar o extrato CSV do Nubank
+- [ ] Importar extratos de outros bancos (Inter, Itaú) e OFX
 - [ ] Versão web com API REST (FastAPI)
