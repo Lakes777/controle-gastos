@@ -186,12 +186,12 @@ Variáveis de ambiente opcionais: `GASTOS_BANCO` (arquivo do banco), `GASTOS_DEM
 
 ### Modo demonstração (versão online)
 
-Online, o app roda em modo demonstração: **cada visitante recebe uma cópia própria dos dados de exemplo**, e pode adicionar, editar e apagar sem que ninguém mais veja. Os dados de exemplo são sempre dos últimos 3 meses (relativos a hoje), com orçamentos e gastos recorrentes já lançados. Os bancos dos visitantes ficam na pasta temporária do servidor e são apagados depois de um dia.
+Online, o app roda em modo demonstração: **cada visitante recebe uma cópia própria dos dados de exemplo**, e pode adicionar, editar e apagar sem que ninguém mais veja. Os dados de exemplo são sempre dos últimos 3 meses (relativos a hoje), com orçamentos e gastos recorrentes já lançados. Cada visitante é uma conta num Postgres (Neon), e as contas são apagadas depois de um dia.
 
-O arquivo `app.py` da raiz é a entrada da Vercel. Para testar a demonstração no seu computador:
+O arquivo `app.py` da raiz é a entrada da Vercel, que entrega o endereço do banco em `DATABASE_URL`. Para testar a demonstração no seu computador, com um Postgres local:
 
 ```bash
-GASTOS_DEMO=1 python -m gastos.web
+GASTOS_DEMO=1 DATABASE_URL=postgresql://usuario@localhost/banco python -m gastos.web
 ```
 
 ## Testes
@@ -203,7 +203,9 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa) e o modo demonstração (visitantes isolados, cookie inválido, limites e limpeza dos bancos antigos). Os testes usam pastas temporárias e nunca tocam nos dados reais.
+Os testes do Postgres rodam quando `GASTOS_TESTE_POSTGRES` tem o endereço de um banco (cada teste usa um schema próprio, apagado no fim); sem ela, são pulados. No GitHub Actions, um Postgres 18 sobe junto com os testes.
+
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa) e o modo demonstração (visitantes isolados, cookie inválido, pedidos simultâneos, limites e limpeza das contas antigas). Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -222,11 +224,12 @@ controle-gastos/
 │   └── web/
 │       ├── __main__.py   # python -m gastos.web (servidor uvicorn)
 │       ├── app.py        # cria o app FastAPI e serve a página
-│       ├── demo.py       # modo demonstração: um banco de exemplo por visitante
+│       ├── banco_postgres.py  # o mesmo Banco, em Postgres, com uma conta por linha
+│       ├── demo.py       # modo demonstração: uma conta com exemplos por visitante
 │       ├── modelos.py    # o que a API recebe e devolve (Pydantic)
 │       ├── rotas.py      # as rotas da API
 │       └── static/       # a página: index.html, estilo.css e app.js
-├── app.py                # entrada da Vercel (modo demonstração)
+├── app.py                # entrada da Vercel (modo demonstração com Postgres)
 ├── vercel.json           # o que não vai para o servidor (testes, docs)
 └── tests/                # testes com pytest
 ```
@@ -255,7 +258,11 @@ controle-gastos/
 - **Web por cima do mesmo código:** a API não repete regra nenhuma; ela chama o mesmo `Banco`, o mesmo cálculo de orçamento e a mesma exportação da linha de comando. Por isso as duas interfaces sempre concordam.
 - **Dinheiro como texto no JSON:** a API recebe e devolve valores como `"45.90"`, não `45.9`. Um número no JSON vira `float` no JavaScript e traria de volta os erros de centavos. O Pydantic recusa zero, negativo, `NaN` e mais de 2 casas decimais.
 - **Recorrentes lançados a cada pedido:** igual ao terminal, antes de responder, a API lança os recorrentes cuja data chegou. A data de hoje é uma dependência do FastAPI, que os testes trocam por uma data fixa.
-- **Um banco por visitante na demonstração:** um cookie com um número aleatório (`uuid4`) aponta para um SQLite só daquele visitante. O cookie é `HttpOnly` e o número é conferido por uma expressão regular antes de virar nome de arquivo, então um cookie como `../../etc/passwd` é ignorado. O banco novo é preenchido num arquivo provisório e renomeado no fim (`os.replace` é atômico), para dois pedidos simultâneos nunca verem um banco pela metade. Há limite de gastos e de recorrentes por visitante e de bancos no servidor.
+- **Postgres na versão online, SQLite no computador:** a Vercel roda o servidor em várias cópias ao mesmo tempo, cada uma com a própria pasta temporária. A primeira versão da demo guardava um SQLite por visitante nessa pasta, e os pedidos simultâneos da página caíam em cópias diferentes: um gasto apagado "voltava". Com um Postgres só, todas as cópias enxergam o mesmo. O `BancoPostgres` tem os mesmos métodos do `Banco` em SQLite, e as rotas funcionam com qualquer um; um mesmo conjunto de testes roda nos dois para garantir que se comportam igual. O defeito foi reproduzido localmente com `uvicorn --workers 4` e confirmado como resolvido.
+- **Uma conta por visitante:** toda linha do Postgres tem a coluna `conta`, e toda consulta filtra por ela, então um visitante não vê nem altera o gasto de outro, mesmo sabendo o número (há teste para isso). A conta vem de um cookie `HttpOnly` com um número aleatório (`uuid4`), conferido por expressão regular. É a mesma estrutura que um login precisaria.
+- **Pedidos simultâneos sem duplicar nada:** a conta é criada e preenchida com os exemplos numa única transação (`INSERT ... ON CONFLICT DO NOTHING`); se a página faz vários pedidos juntos, os outros esperam e não repetem os exemplos. O lançamento dos recorrentes trava as linhas (`SELECT ... FOR UPDATE`), então duas cópias do servidor nunca lançam o mesmo mês. Um teste dispara 8 pedidos ao mesmo tempo com threads, e ele falha se o `FOR UPDATE` for removido.
+- **`NUMERIC(12, 2)` no Postgres:** diferente do SQLite, o Postgres tem um tipo decimal exato para dinheiro; o valor volta como `Decimal` e o banco também recusa valor negativo (`CHECK`).
+- **Contas antigas apagadas em cascata:** `ON DELETE CASCADE` apaga gastos, orçamentos e recorrentes junto com a conta vencida.
 - **Data de hoje no fuso do Brasil:** o servidor online roda em UTC; sem o fuso `America/Sao_Paulo`, às 22h de Brasília ele já estaria no dia seguinte.
 - **Sem `innerHTML` no front:** tudo que vem da API entra na página com `textContent`, então uma descrição como `<script>` aparece como texto e não é executada (proteção contra XSS).
 - **Linha de comando só com a biblioteca padrão:** `argparse`, `sqlite3`, `csv`, `zipfile`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas. FastAPI e uvicorn são usados só pela versão web.

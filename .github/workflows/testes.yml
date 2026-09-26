@@ -15,6 +15,24 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
+    # Um Postgres de verdade para os testes da versão online (banco_postgres.py e demo.py)
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: teste
+        ports:
+          - 5432:5432
+        # Espera o banco aceitar conexões antes de rodar os testes
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      GASTOS_TESTE_POSTGRES: postgresql://postgres:teste@localhost:5432/postgres
+
     steps:
       - name: Baixar o código
         uses: actions/checkout@v5
