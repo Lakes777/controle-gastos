@@ -8,6 +8,7 @@
 """
 
 import io
+from collections.abc import Iterator
 from dataclasses import replace
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -22,6 +23,7 @@ from gastos.grafico import somar_por_categoria
 from gastos.modelo import Gasto
 from gastos.orcamento import Situacao, calcular
 from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
+from gastos.web.banco_postgres import BancoPostgres
 from gastos.web.demo import LIMITE_GASTOS, LIMITE_RECORRENTES
 from gastos.web.modelos import (
     PADRAO_MES,
@@ -41,6 +43,9 @@ roteador_relatorios = APIRouter(tags=["relatórios"])
 roteador_orcamentos = APIRouter(prefix="/orcamentos", tags=["orçamentos"])
 roteador_recorrentes = APIRouter(prefix="/recorrentes", tags=["recorrentes"])
 
+# As rotas funcionam com qualquer um dos dois: os métodos têm os mesmos nomes.
+QualquerBanco = Banco | BancoPostgres
+
 FiltroMes = Query(default=None, pattern=PADRAO_MES, description="Só um mês, no formato AAAA-MM")
 
 
@@ -53,16 +58,21 @@ def hoje() -> date:
     return datetime.now(FUSO).date()
 
 
-def pegar_banco(request: Request, response: Response, dia: date = Depends(hoje)) -> Banco:
+def pegar_banco(
+    request: Request, response: Response, dia: date = Depends(hoje)
+) -> Iterator[QualquerBanco]:
+    # Com yield, o FastAPI roda o que vem depois (fechar a conexão) ao fim do pedido.
     demo = request.app.state.demo
     if demo is None:
-        banco: Banco = request.app.state.banco  # guardado no app ao criá-lo
-    else:
-        # Na demonstração, cada visitante tem o próprio banco (veja demo.py).
-        banco = demo.banco(demo.identificar(request, response), dia)
-    # Igual ao terminal: antes de qualquer coisa, lança os recorrentes cuja data chegou.
-    banco.lancar_recorrentes(dia)
-    return banco
+        banco = request.app.state.banco  # SQLite guardado no app ao criá-lo
+        # Igual ao terminal: antes de qualquer coisa, lança os recorrentes cuja data chegou.
+        banco.lancar_recorrentes(dia)
+        yield banco
+        return
+    # Na demonstração, cada visitante é uma conta no Postgres (veja demo.py).
+    with demo.abrir(demo.identificar(request, response), dia) as banco:
+        banco.lancar_recorrentes(dia)
+        yield banco
 
 
 def para_resposta(gasto: Gasto) -> GastoSalvo:
@@ -75,7 +85,7 @@ def para_resposta(gasto: Gasto) -> GastoSalvo:
     )
 
 
-def buscar_ou_404(banco: Banco, gasto_id: int) -> Gasto:
+def buscar_ou_404(banco: QualquerBanco, gasto_id: int) -> Gasto:
     gasto = banco.buscar(gasto_id)
     if gasto is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Nenhum gasto com o número {gasto_id}")
@@ -104,7 +114,7 @@ def porcentagem(parte: Decimal, total: Decimal) -> int:
 def adicionar(
     novo: GastoNovo,
     request: Request,
-    banco: Banco = Depends(pegar_banco),
+    banco: QualquerBanco = Depends(pegar_banco),
     dia: date = Depends(hoje),
 ) -> GastoSalvo:
     """Registra um gasto. Sem data, vale hoje."""
@@ -114,19 +124,19 @@ def adicionar(
 
 
 @roteador_gastos.get("")
-def listar(mes: str | None = FiltroMes, banco: Banco = Depends(pegar_banco)) -> list[GastoSalvo]:
+def listar(mes: str | None = FiltroMes, banco: QualquerBanco = Depends(pegar_banco)) -> list[GastoSalvo]:
     """Lista os gastos em ordem cronológica."""
     return [para_resposta(gasto) for gasto in banco.listar(mes=mes)]
 
 
 @roteador_gastos.get("/{gasto_id}", responses={404: {"description": "Gasto não encontrado"}})
-def ver(gasto_id: int, banco: Banco = Depends(pegar_banco)) -> GastoSalvo:
+def ver(gasto_id: int, banco: QualquerBanco = Depends(pegar_banco)) -> GastoSalvo:
     return para_resposta(buscar_ou_404(banco, gasto_id))
 
 
 @roteador_gastos.patch("/{gasto_id}", responses={404: {"description": "Gasto não encontrado"}})
 def editar(
-    gasto_id: int, mudancas: GastoAtualizacao, banco: Banco = Depends(pegar_banco)
+    gasto_id: int, mudancas: GastoAtualizacao, banco: QualquerBanco = Depends(pegar_banco)
 ) -> GastoSalvo:
     """Muda só os campos enviados."""
     gasto = buscar_ou_404(banco, gasto_id)
@@ -143,7 +153,7 @@ def editar(
     status_code=status.HTTP_204_NO_CONTENT,
     responses={404: {"description": "Gasto não encontrado"}},
 )
-def remover(gasto_id: int, banco: Banco = Depends(pegar_banco)) -> None:
+def remover(gasto_id: int, banco: QualquerBanco = Depends(pegar_banco)) -> None:
     if not banco.remover(gasto_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"Nenhum gasto com o número {gasto_id}")
 
@@ -152,7 +162,7 @@ def remover(gasto_id: int, banco: Banco = Depends(pegar_banco)) -> None:
 
 
 @roteador_relatorios.get("/resumo")
-def resumo(mes: str | None = FiltroMes, banco: Banco = Depends(pegar_banco)) -> Resumo:
+def resumo(mes: str | None = FiltroMes, banco: QualquerBanco = Depends(pegar_banco)) -> Resumo:
     """Total do período e de cada categoria, da maior para a menor."""
     gastos = banco.listar(mes=mes)
     totais = somar_por_categoria(gastos)
@@ -169,13 +179,13 @@ def resumo(mes: str | None = FiltroMes, banco: Banco = Depends(pegar_banco)) -> 
 
 
 @roteador_relatorios.get("/meses")
-def meses(banco: Banco = Depends(pegar_banco)) -> list[str]:
+def meses(banco: QualquerBanco = Depends(pegar_banco)) -> list[str]:
     """Meses (AAAA-MM) que têm pelo menos um gasto, do mais recente para o mais antigo."""
     return sorted({f"{gasto.data:%Y-%m}" for gasto in banco.listar()}, reverse=True)
 
 
 @roteador_relatorios.get("/categorias")
-def categorias(banco: Banco = Depends(pegar_banco)) -> list[str]:
+def categorias(banco: QualquerBanco = Depends(pegar_banco)) -> list[str]:
     """Categorias já usadas (em gastos ou orçamentos), em ordem alfabética."""
     usadas = {gasto.categoria for gasto in banco.listar()} | set(banco.listar_orcamentos())
     return sorted(usadas)
@@ -189,7 +199,7 @@ def categorias(banco: Banco = Depends(pegar_banco)) -> list[str]:
 def exportar(
     formato: Literal["xlsx", "csv"] = "xlsx",
     mes: str | None = FiltroMes,
-    banco: Banco = Depends(pegar_banco),
+    banco: QualquerBanco = Depends(pegar_banco),
 ) -> Response:
     """Baixa os gastos numa planilha do Excel (.xlsx) ou em CSV."""
     gastos = banco.listar(mes=mes)
@@ -231,7 +241,7 @@ def situacao_do_mes(
     mes: str | None = Query(
         default=None, pattern=PADRAO_MES, description="AAAA-MM (padrão: o mês atual)"
     ),
-    banco: Banco = Depends(pegar_banco),
+    banco: QualquerBanco = Depends(pegar_banco),
     dia: date = Depends(hoje),
 ) -> list[SituacaoOrcamento]:
     """Quanto já foi gasto de cada orçamento no mês."""
@@ -241,7 +251,7 @@ def situacao_do_mes(
 
 @roteador_orcamentos.put("/{categoria}")
 def definir_orcamento(
-    categoria: str, orcamento: OrcamentoNovo, banco: Banco = Depends(pegar_banco)
+    categoria: str, orcamento: OrcamentoNovo, banco: QualquerBanco = Depends(pegar_banco)
 ) -> dict[str, str]:
     """Cria ou troca o limite mensal da categoria."""
     categoria = categoria.strip().lower()
@@ -256,7 +266,7 @@ def definir_orcamento(
     status_code=status.HTTP_204_NO_CONTENT,
     responses={404: {"description": "A categoria não tem orçamento"}},
 )
-def remover_orcamento(categoria: str, banco: Banco = Depends(pegar_banco)) -> None:
+def remover_orcamento(categoria: str, banco: QualquerBanco = Depends(pegar_banco)) -> None:
     categoria = categoria.strip().lower()
     if not banco.remover_orcamento(categoria):
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"A categoria {categoria} não tem orçamento")
@@ -277,7 +287,7 @@ def para_recorrente(recorrente: Recorrente) -> RecorrenteSalvo:
 
 
 @roteador_recorrentes.get("")
-def listar_recorrentes(banco: Banco = Depends(pegar_banco)) -> list[RecorrenteSalvo]:
+def listar_recorrentes(banco: QualquerBanco = Depends(pegar_banco)) -> list[RecorrenteSalvo]:
     return [para_recorrente(r) for r in banco.listar_recorrentes()]
 
 
@@ -287,7 +297,7 @@ def listar_recorrentes(banco: Banco = Depends(pegar_banco)) -> list[RecorrenteSa
 def adicionar_recorrente(
     novo: RecorrenteNovo,
     request: Request,
-    banco: Banco = Depends(pegar_banco),
+    banco: QualquerBanco = Depends(pegar_banco),
     dia: date = Depends(hoje),
 ) -> RecorrenteSalvo:
     """Cria um gasto recorrente. Com "desde" no passado, os meses que já passaram entram agora."""
@@ -315,7 +325,7 @@ def adicionar_recorrente(
     status_code=status.HTTP_204_NO_CONTENT,
     responses={404: {"description": "Recorrente não encontrado"}},
 )
-def remover_recorrente(recorrente_id: int, banco: Banco = Depends(pegar_banco)) -> None:
+def remover_recorrente(recorrente_id: int, banco: QualquerBanco = Depends(pegar_banco)) -> None:
     """Para de lançar o recorrente. Os gastos já lançados continuam."""
     if not banco.remover_recorrente(recorrente_id):
         raise HTTPException(

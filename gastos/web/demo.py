@@ -2,26 +2,29 @@
 
 Na versão online, qualquer pessoa pode adicionar, editar e apagar gastos. Para
 um visitante não ver (nem estragar) o que outro fez, cada um recebe um cookie
-com um número aleatório, e esse número aponta para um banco SQLite só dele,
-numa pasta temporária. Os bancos antigos são apagados sozinhos.
+com um número aleatório, e esse número é a sua conta no Postgres: toda linha
+do banco diz de qual conta ela é. As contas antigas são apagadas sozinhas.
 
-O servidor da Vercel apaga a pasta temporária de tempos em tempos; aí os dados
-voltam ao exemplo. Para uma demonstração, é exatamente o que se quer.
+Por que Postgres e não um SQLite por visitante? A Vercel roda o servidor em
+várias cópias ao mesmo tempo, cada uma com a própria pasta temporária. Pedidos
+de um mesmo visitante caíam em cópias diferentes, e um gasto apagado numa
+"voltava" na outra. Com um banco só, todas as cópias enxergam o mesmo.
 """
 
-import os
 import re
-import time
 import uuid
+from collections.abc import Callable, Iterator
+from contextlib import closing, contextmanager
 from datetime import date, timedelta
 from decimal import Decimal
-from pathlib import Path
 
+import psycopg
 from fastapi import Request, Response
 
 from gastos.armazenamento import Banco
 from gastos.modelo import Gasto
 from gastos.recorrentes import Recorrente, data_no_mes
+from gastos.web.banco_postgres import BancoPostgres, criar_tabelas
 
 NOME_COOKIE = "visitante_demo"
 VALIDADE = timedelta(days=1)  # depois disso, o visitante recomeça do exemplo
@@ -62,7 +65,7 @@ def mes_anterior(mes: str, quantos: int = 1) -> str:
     return f"{total // 12}-{total % 12 + 1:02d}"
 
 
-def preencher_exemplos(banco: Banco, hoje: date) -> None:
+def preencher_exemplos(banco: Banco | BancoPostgres, hoje: date) -> None:
     """Coloca os dados de exemplo nos últimos 3 meses, sempre relativos a hoje.
 
     Assim o exemplo nunca fica velho. No mês atual, um dia que ainda não
@@ -84,9 +87,12 @@ def preencher_exemplos(banco: Banco, hoje: date) -> None:
 
 
 class Demonstracao:
-    def __init__(self, pasta: Path | str, max_bancos: int = 500) -> None:
-        self.pasta = Path(pasta)
-        self.max_bancos = max_bancos
+    def __init__(self, conectar: Callable[[], psycopg.Connection], max_contas: int = 5000) -> None:
+        """conectar: função que abre uma conexão nova com o Postgres."""
+        self.conectar = conectar
+        self.max_contas = max_contas
+        with closing(conectar()) as conexao:
+            criar_tabelas(conexao)
 
     def identificar(self, request: Request, response: Response) -> str:
         """Devolve o número do visitante; se ele ainda não tem, cria e manda no cookie."""
@@ -105,24 +111,36 @@ class Demonstracao:
         )
         return visitante
 
-    def banco(self, visitante: str, hoje: date) -> Banco:
-        """O banco do visitante; na primeira vez, criado já com os exemplos."""
-        caminho = self.pasta / f"{visitante}.db"
-        if not caminho.exists():
-            self._apagar_antigos()
-            # Preenche num arquivo provisório e só depois dá o nome final (os.replace
-            # é atômico): dois pedidos ao mesmo tempo nunca veem um banco pela metade.
-            provisorio = self.pasta / f"{visitante}-{uuid.uuid4().hex}.criando"
-            preencher_exemplos(Banco(provisorio), hoje)
-            os.replace(provisorio, caminho)
-        return Banco(caminho)
+    @contextmanager
+    def abrir(self, visitante: str, hoje: date) -> Iterator[BancoPostgres]:
+        """Abre o banco do visitante (uma conexão por pedido); na primeira vez, com os exemplos."""
+        with closing(self.conectar()) as conexao:
+            banco = BancoPostgres(conexao, visitante)
+            # Criar a conta e preencher os exemplos numa transação só. Se a página faz
+            # vários pedidos juntos, o segundo INSERT espera o primeiro terminar e aí
+            # não faz nada (ON CONFLICT): ninguém vê uma conta pela metade.
+            with conexao.transaction():
+                nova = conexao.execute(
+                    "INSERT INTO contas (id) VALUES (%s) ON CONFLICT DO NOTHING RETURNING id",
+                    (visitante,),
+                ).fetchone()
+                if nova:
+                    preencher_exemplos(banco, hoje)
+            if nova:
+                self._apagar_antigas(conexao)
+            yield banco
 
-    def _apagar_antigos(self) -> None:
-        """Apaga os bancos vencidos e, se ainda houver muitos, os mais antigos."""
-        if not self.pasta.exists():
-            return
-        bancos = sorted(self.pasta.glob("*.db"), key=lambda c: c.stat().st_mtime)
-        limite = time.time() - VALIDADE.total_seconds()
-        for indice, caminho in enumerate(bancos):
-            if caminho.stat().st_mtime < limite or len(bancos) - indice >= self.max_bancos:
-                caminho.unlink(missing_ok=True)
+    def _apagar_antigas(self, conexao: psycopg.Connection) -> None:
+        """Apaga as contas vencidas e, se ainda houver muitas, as mais antigas.
+
+        Os gastos, orçamentos e recorrentes vão junto (ON DELETE CASCADE).
+        """
+        with conexao.transaction():
+            conexao.execute(
+                "DELETE FROM contas WHERE criada_em < now() - %s", (VALIDADE,)
+            )
+            conexao.execute(
+                "DELETE FROM contas WHERE id IN "
+                "(SELECT id FROM contas ORDER BY criada_em DESC OFFSET %s)",
+                (self.max_contas,),
+            )
