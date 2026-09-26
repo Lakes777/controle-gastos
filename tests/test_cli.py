@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from gastos.__main__ import formatar_reais, main, valor_positivo
+from gastos.__main__ import formatar_reais, main, mes_valido, valor_positivo
 
 
 @pytest.mark.parametrize(
@@ -247,3 +247,24 @@ def test_grafico_sem_gastos(tmp_path, monkeypatch, capsys):
     rodar(monkeypatch, "grafico")
 
     assert "Nenhum gasto encontrado" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("texto, esperado", [("2026-09", "2026-09"), ("2026-9", "2026-09")])
+def test_mes_valido_normaliza_com_dois_digitos(texto, esperado):
+    assert mes_valido(texto) == esperado
+
+
+@pytest.mark.parametrize("texto", ["setembro", "2026-13", "09-2026", "2026/09", ""])
+def test_mes_valido_rejeita_formatos_errados(texto):
+    with pytest.raises(argparse.ArgumentTypeError):
+        mes_valido(texto)
+
+
+def test_mes_sem_zero_ainda_encontra_os_gastos(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "adicionar", "10", "mercado", "--data", "2026-09-05")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "resumo", "--mes", "2026-9")
+
+    assert "mercado" in capsys.readouterr().out

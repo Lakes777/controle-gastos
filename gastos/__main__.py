@@ -3,7 +3,7 @@
 import argparse
 import sys
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from gastos.armazenamento import Banco
@@ -24,6 +24,15 @@ def valor_positivo(texto: str) -> Decimal:
     if valor <= 0:
         raise argparse.ArgumentTypeError("o valor precisa ser maior que zero")
     return valor
+
+
+def mes_valido(texto: str) -> str:
+    """Confere o mês (AAAA-MM) e o devolve sempre com dois dígitos: 2026-9 vira 2026-09."""
+    try:
+        data = datetime.strptime(texto, "%Y-%m")
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"mês inválido: {texto} (use AAAA-MM, ex.: 2026-09)")
+    return f"{data.year:04d}-{data.month:02d}"
 
 
 def cmd_adicionar(args: argparse.Namespace) -> None:
@@ -177,7 +186,7 @@ def main() -> None:
         "exportar", help="salva os gastos em planilha do Excel (.xlsx) ou CSV"
     )
     p_exportar.add_argument("arquivo", help="ex.: gastos.xlsx ou gastos.csv")
-    p_exportar.add_argument("--mes", help="exporta só um mês, no formato AAAA-MM")
+    p_exportar.add_argument("--mes", type=mes_valido, help="exporta só um mês, no formato AAAA-MM")
     p_exportar.add_argument(
         "--sobrescrever", action="store_true", help="substitui o arquivo se ele já existir"
     )
@@ -188,7 +197,7 @@ def main() -> None:
     p_remover.set_defaults(funcao=cmd_remover)
 
     p_resumo = subparsers.add_parser("resumo", help="total por categoria")
-    p_resumo.add_argument("--mes", help="filtra por mês no formato AAAA-MM")
+    p_resumo.add_argument("--mes", type=mes_valido, help="filtra por mês no formato AAAA-MM")
     p_resumo.set_defaults(funcao=cmd_resumo)
 
     p_grafico = subparsers.add_parser("grafico", help="gráfico de barras dos gastos")
@@ -198,7 +207,7 @@ def main() -> None:
         default="categoria",
         help="agrupar por categoria (padrão) ou por mês",
     )
-    p_grafico.add_argument("--mes", help="só um mês, no formato AAAA-MM")
+    p_grafico.add_argument("--mes", type=mes_valido, help="só um mês, no formato AAAA-MM")
     p_grafico.set_defaults(funcao=cmd_grafico)
 
     args = parser.parse_args()
