@@ -1,6 +1,7 @@
 """Interface de linha de comando: python -m gastos <comando>."""
 
 import argparse
+import sys
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -47,11 +48,25 @@ def cmd_listar(args: argparse.Namespace) -> None:
         print("Nenhum gasto registrado ainda.")
         return
 
+    print(f"{'Nº':>4}  {'DATA':<10}  {'VALOR':>12}  {'CATEGORIA':<12}  DESCRIÇÃO")
     for gasto in gastos:  # o banco já devolve em ordem cronológica
         print(
-            f"{gasto.data:%d/%m/%Y}  {formatar_reais(gasto.valor):>12}  "
+            f"{gasto.id:>4}  {gasto.data:%d/%m/%Y}  {formatar_reais(gasto.valor):>12}  "
             f"{gasto.categoria:<12}  {gasto.descricao}"
         )
+
+
+def cmd_remover(args: argparse.Namespace) -> None:
+    banco = Banco()
+    gasto = banco.buscar(args.id)
+    if gasto is None:
+        # sys.exit com texto: mostra a mensagem como erro e sai com código 1
+        sys.exit(f"Nenhum gasto com o número {args.id}. Veja os números com: listar")
+    banco.remover(args.id)
+    print(
+        f"Gasto {gasto.id} removido: {formatar_reais(gasto.valor)} em {gasto.categoria} "
+        f"({gasto.data:%d/%m/%Y})"
+    )
 
 
 def cmd_resumo(args: argparse.Namespace) -> None:
@@ -91,6 +106,10 @@ def main() -> None:
 
     p_listar = subparsers.add_parser("listar", help="mostra todos os gastos")
     p_listar.set_defaults(funcao=cmd_listar)
+
+    p_remover = subparsers.add_parser("remover", help="apaga um gasto pelo número")
+    p_remover.add_argument("id", type=int, help="o número mostrado em 'listar'")
+    p_remover.set_defaults(funcao=cmd_remover)
 
     p_resumo = subparsers.add_parser("resumo", help="total por categoria")
     p_resumo.add_argument("--mes", help="filtra por mês no formato AAAA-MM")

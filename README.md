@@ -16,7 +16,8 @@ TOTAL             R$ 960,20
 ## Funcionalidades
 
 - **Adicionar** gastos com valor, categoria, descrição e data
-- **Listar** todos os gastos em ordem cronológica
+- **Listar** todos os gastos em ordem cronológica, cada um com seu número
+- **Remover** um gasto pelo número
 - **Resumir** o total por categoria, com filtro por mês
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
@@ -39,8 +40,11 @@ cd controle-gastos
 python -m gastos adicionar 45,90 mercado "compras da semana"
 python -m gastos adicionar 12.50 transporte --data 2026-09-20
 
-# Listar todos os gastos
+# Listar todos os gastos (com o número de cada um)
 python -m gastos listar
+
+# Remover o gasto número 2
+python -m gastos remover 2
 
 # Resumo por categoria (geral ou de um mês)
 python -m gastos resumo
@@ -53,8 +57,9 @@ python -m gastos --help
 Exemplo de listagem:
 
 ```
-20/09/2026      R$ 12,50  transporte
-23/09/2026      R$ 45,90  mercado       compras da semana
+  Nº  DATA               VALOR  CATEGORIA     DESCRIÇÃO
+   2  20/09/2026      R$ 12,50  transporte
+   1  23/09/2026      R$ 45,90  mercado       compras da semana
 ```
 
 ## Testes
@@ -85,6 +90,7 @@ controle-gastos/
 - **SQLite com o `sqlite3` da biblioteca padrão:** um banco de verdade num único arquivo, sem servidor e sem instalar nada. O SQL é escrito à mão, com marcadores (`?`) para evitar SQL injection.
 - **Valor guardado como `TEXT`, não `REAL`:** o `REAL` do SQLite é um `float` e traria de volta os erros de centavos; em texto (`"45.90"`), o `Decimal` volta exato. Há um teste que falha se a coluna virar `REAL`.
 - **Migração sem perder dados:** ao abrir o banco, um `gastos.json` antigo é importado numa única transação e renomeado para `gastos.json.migrado` (backup). Se algo falhar, nada fica importado pela metade.
+- **Números de gasto nunca reaproveitados:** a tabela usa `AUTOINCREMENT`, então, depois de remover o gasto 5, nenhum gasto novo recebe o 5. Um número anotado nunca passa a apontar para outro gasto.
 - **Biblioteca padrão apenas:** `argparse`, `sqlite3`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas.
 - **Caminho do arquivo como parâmetro:** permite que os testes usem arquivos temporários, isolados dos dados reais.
 - **Dados fora do Git:** a pasta `dados/` está no `.gitignore`, então informações financeiras pessoais nunca vão para o repositório.

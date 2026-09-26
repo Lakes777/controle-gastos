@@ -125,3 +125,38 @@ def test_json_quebrado_nao_importa_nada_pela_metade(tmp_path):
     assert antigo.exists()  # o original continua lá, intacto
     antigo.unlink()
     assert Banco(tmp_path / "gastos.db").listar() == []
+
+
+# --- Buscar e remover ---
+
+
+def test_buscar_devolve_o_gasto_ou_none(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+    salvo = banco.adicionar(Gasto(Decimal("10"), "mercado"))
+
+    assert banco.buscar(salvo.id) == salvo
+    assert banco.buscar(999) is None
+
+
+def test_remover_apaga_so_o_gasto_escolhido(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+    fica = banco.adicionar(Gasto(Decimal("10"), "fica"))
+    sai = banco.adicionar(Gasto(Decimal("20"), "sai"))
+
+    assert banco.remover(sai.id) is True
+    assert banco.listar() == [fica]
+
+
+def test_remover_id_inexistente_devolve_false(tmp_path):
+    assert Banco(tmp_path / "gastos.db").remover(999) is False
+
+
+def test_numero_de_gasto_removido_nao_e_reaproveitado(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+    banco.adicionar(Gasto(Decimal("1"), "a"))
+    ultimo = banco.adicionar(Gasto(Decimal("2"), "b"))
+    banco.remover(ultimo.id)
+
+    novo = banco.adicionar(Gasto(Decimal("3"), "c"))
+
+    assert novo.id == ultimo.id + 1

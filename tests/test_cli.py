@@ -69,3 +69,40 @@ def test_listar_sem_gastos(tmp_path, monkeypatch, capsys):
     rodar(monkeypatch, "listar")
 
     assert "Nenhum gasto registrado" in capsys.readouterr().out
+
+
+def test_listar_mostra_o_numero_de_cada_gasto(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "adicionar", "10", "mercado")
+    rodar(monkeypatch, "adicionar", "20", "lazer")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "listar")
+
+    linhas = capsys.readouterr().out.splitlines()
+    assert linhas[0].split()[0] == "Nº"
+    assert [linha.split()[0] for linha in linhas[1:]] == ["1", "2"]
+
+
+def test_remover_pela_linha_de_comando(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    rodar(monkeypatch, "adicionar", "10", "mercado")
+    rodar(monkeypatch, "adicionar", "23,59", "uber")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "remover", "2")
+    assert "Gasto 2 removido: R$ 23,59 em uber" in capsys.readouterr().out
+
+    rodar(monkeypatch, "listar")
+    saida = capsys.readouterr().out
+    assert "mercado" in saida
+    assert "uber" not in saida
+
+
+def test_remover_numero_inexistente_da_erro(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SystemExit) as erro:
+        rodar(monkeypatch, "remover", "7")
+
+    assert "Nenhum gasto com o número 7" in str(erro.value)

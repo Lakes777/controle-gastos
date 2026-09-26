@@ -100,3 +100,15 @@ class Banco:
         with self._conectar() as conexao:
             linhas = conexao.execute(sql, valores).fetchall()
         return [self._para_gasto(linha) for linha in linhas]
+
+    def buscar(self, id: int) -> Gasto | None:
+        """Devolve o gasto com esse id, ou None se ele não existir."""
+        with self._conectar() as conexao:
+            linha = conexao.execute("SELECT * FROM gastos WHERE id = ?", (id,)).fetchone()
+        return self._para_gasto(linha) if linha else None
+
+    def remover(self, id: int) -> bool:
+        """Apaga o gasto. Devolve False se não havia gasto com esse id."""
+        with self._conectar() as conexao:
+            cursor = conexao.execute("DELETE FROM gastos WHERE id = ?", (id,))
+        return cursor.rowcount > 0  # rowcount: quantas linhas o comando afetou
