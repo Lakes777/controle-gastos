@@ -291,3 +291,50 @@ def test_dia_fora_de_1_a_31_e_recusado_pelo_banco(tmp_path):
 
     with pytest.raises(sqlite3.IntegrityError):
         banco.adicionar_recorrente(Recorrente(Decimal("1"), "x", 32, "2026-10"))
+
+
+# --- Importação (coluna origem) ---
+
+
+def test_importar_pula_origem_repetida(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+    uber = Gasto(Decimal("23.59"), "transporte", "Uber", date(2026, 9, 5))
+    ifood = Gasto(Decimal("40"), "alimentação", "iFood", date(2026, 9, 6))
+
+    primeira = banco.importar([(uber, "a"), (ifood, "b")])
+    segunda = banco.importar([(uber, "a"), (ifood, "b")])
+
+    assert [g.id for g in primeira] == [1, 2]
+    assert segunda == []
+    assert len(banco.listar()) == 2
+    assert banco.origens_existentes() == {"a", "b"}
+
+
+def test_gastos_digitados_a_mao_nao_tem_origem_e_nao_conflitam(tmp_path):
+    banco = Banco(tmp_path / "gastos.db")
+    banco.adicionar(Gasto(Decimal("10"), "lanche"))
+    banco.adicionar(Gasto(Decimal("10"), "lanche"))  # origem NULL duas vezes: tudo bem
+
+    assert len(banco.listar()) == 2
+    assert banco.origens_existentes() == set()
+
+
+def test_banco_sem_coluna_origem_e_migrado(tmp_path):
+    import sqlite3
+
+    caminho = tmp_path / "gastos.db"
+    with sqlite3.connect(caminho) as conexao:  # como a versão anterior criava
+        conexao.execute(
+            "CREATE TABLE gastos (id INTEGER PRIMARY KEY AUTOINCREMENT, valor TEXT NOT NULL, "
+            "categoria TEXT NOT NULL, descricao TEXT NOT NULL DEFAULT '', data TEXT NOT NULL)"
+        )
+        conexao.execute(
+            "INSERT INTO gastos (valor, categoria, data) VALUES ('30', 'lanche', '2026-09-23')"
+        )
+    conexao.close()
+
+    banco = Banco(caminho)
+    Banco(caminho)  # abrir de novo não tenta criar a coluna outra vez
+    banco.importar([(Gasto(Decimal("5"), "x", data=date(2026, 9, 1)), "nubank:1")])
+
+    assert [g.categoria for g in banco.listar()] == ["x", "lanche"]

@@ -6,7 +6,7 @@ Cada operação abre e fecha a própria conexão.
 
 import json
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import closing, contextmanager
 from dataclasses import replace
 from datetime import date
@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS gastos (
     valor     TEXT    NOT NULL,  -- texto, não REAL: REAL é float e perderia centavos
     categoria TEXT    NOT NULL,
     descricao TEXT    NOT NULL DEFAULT '',
-    data      TEXT    NOT NULL   -- AAAA-MM-DD: em texto, a ordem alfabética é a cronológica
+    data      TEXT    NOT NULL,  -- AAAA-MM-DD: em texto, a ordem alfabética é a cronológica
+    origem    TEXT               -- de onde veio um gasto importado (evita importar duas vezes)
 )
 """
 
@@ -56,7 +57,18 @@ class Banco:
             # Bancos criados por versões antigas ganham a tabela nova aqui, sem perder nada.
             conexao.execute(CRIAR_TABELA_ORCAMENTOS)
             conexao.execute(CRIAR_TABELA_RECORRENTES)
+            self._adicionar_coluna_origem(conexao)
         self._importar_json_antigo()
+
+    @staticmethod
+    def _adicionar_coluna_origem(conexao: sqlite3.Connection) -> None:
+        """Migração: bancos anteriores à importação de extratos não têm a coluna origem."""
+        colunas = {linha["name"] for linha in conexao.execute("PRAGMA table_info(gastos)")}
+        if "origem" not in colunas:
+            conexao.execute("ALTER TABLE gastos ADD COLUMN origem TEXT")
+        # UNIQUE: a mesma origem não entra duas vezes. Gastos digitados à mão têm
+        # origem NULL, e o SQLite permite quantos NULL forem precisos.
+        conexao.execute("CREATE UNIQUE INDEX IF NOT EXISTS gastos_origem ON gastos (origem)")
 
     @contextmanager
     def _conectar(self) -> Iterator[sqlite3.Connection]:
@@ -233,3 +245,34 @@ class Banco:
                     (mes_seguinte(f"{datas[-1]:%Y-%m}"), recorrente.id),
                 )
         return sorted(lancados, key=lambda g: (g.data, g.id))
+
+    def origens_existentes(self) -> set[str]:
+        """Origens dos gastos já importados (para saber o que seria repetido)."""
+        with self._conectar() as conexao:
+            linhas = conexao.execute(
+                "SELECT origem FROM gastos WHERE origem IS NOT NULL"
+            ).fetchall()
+        return {linha["origem"] for linha in linhas}
+
+    def importar(self, itens: Iterable[tuple[Gasto, str]]) -> list[Gasto]:
+        """Salva gastos importados, cada um com sua origem, numa transação só.
+
+        Um gasto cuja origem já está no banco é pulado. Devolve os que entraram.
+        """
+        importados = []
+        with self._conectar() as conexao:
+            for gasto, origem in itens:
+                cursor = conexao.execute(
+                    "INSERT INTO gastos (valor, categoria, descricao, data, origem) "
+                    "VALUES (?, ?, ?, ?, ?) ON CONFLICT (origem) DO NOTHING",
+                    (
+                        str(gasto.valor),
+                        gasto.categoria,
+                        gasto.descricao,
+                        gasto.data.isoformat(),
+                        origem,
+                    ),
+                )
+                if cursor.rowcount:
+                    importados.append(replace(gasto, id=cursor.lastrowid))
+        return importados
