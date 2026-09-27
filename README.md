@@ -27,14 +27,14 @@ TOTAL             R$ 960,20
 - **Remover** um gasto pelo número
 - **Resumir** o total por categoria, com filtro por mês
 - **Gráfico** de barras no terminal, por categoria ou por mês
-- **Importar o extrato do Nubank** (CSV da fatura do cartão ou da conta), com categoria adivinhada pela descrição, `--simular` e sem nunca importar o mesmo gasto duas vezes
+- **Importar extratos:** CSV do Nubank ou **OFX de qualquer banco** (Inter, Itaú, Nubank...), da fatura do cartão ou da conta, com categoria adivinhada pela descrição, `--simular` e sem nunca importar o mesmo gasto duas vezes
 - **Gastos recorrentes** (aluguel, internet, assinaturas), lançados sozinhos quando o dia chega, inclusive os meses em que o programa não foi aberto
 - **Orçamento** mensal por categoria, com aviso de ATENÇÃO a partir de 80% e de ESTOUROU acima do limite, mostrado também ao adicionar ou editar um gasto
 - **Exportar** para planilha do Excel (`.xlsx`) ou CSV, geral ou de um mês; o `.xlsx` sai com valores em R$, datas de verdade e linha de total com fórmula
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
 - **Contas de usuário na versão online:** cadastro com código de convite, login com senha em argon2id, sessões que podem ser encerradas e exclusão da conta com todos os dados
-- **Versão web** (FastAPI + HTML/CSS/JS): formulário, lista com editar/remover, gráfico por categoria, orçamento, recorrentes, importação do Nubank com prévia e download do .xlsx, usando o mesmo banco do terminal
+- **Versão web** (FastAPI + HTML/CSS/JS): formulário, lista com editar/remover, gráfico por categoria, orçamento, recorrentes, importação de extratos com prévia e download do .xlsx, usando o mesmo banco do terminal
 - Dados salvos localmente num banco SQLite, fora do controle de versão
 - Quem usava a versão antiga (JSON) tem os gastos importados automaticamente
 
@@ -73,9 +73,10 @@ python -m gastos grafico                   # por categoria, da maior para a meno
 python -m gastos grafico --mes 2026-09     # só um mês
 python -m gastos grafico --por mes         # evolução mês a mês
 
-# Importar o CSV do Nubank (fatura do cartão ou extrato da conta)
+# Importar o extrato (fatura do cartão ou conta): CSV do Nubank ou OFX de qualquer banco
 python -m gastos importar Nubank_2026-09.csv --simular   # só mostra o que entraria
 python -m gastos importar Nubank_2026-09.csv
+python -m gastos importar extrato-inter.ofx              # o formato é reconhecido pelo conteúdo
 
 # Gastos recorrentes: lançados sozinhos quando o dia chega
 python -m gastos recorrente adicionar 1200 aluguel --dia 5
@@ -122,7 +123,7 @@ Exemplo de importação do extrato da conta:
 
 ```
 $ python -m gastos importar extrato.csv
-Arquivo reconhecido: extrato da conta do Nubank
+Arquivo reconhecido: extrato da conta do Nubank (CSV)
 
   + 01/09/2026      R$ 45,90  mercado       Compra no débito - SUPERMERCADO CONDOR
   + 10/09/2026      R$ 18,50  alimentação   Compra no débito - PADARIA BELA VISTA
@@ -183,7 +184,7 @@ Depois, abra http://127.0.0.1:8000 no navegador. A página usa o mesmo banco da 
 | `PUT/DELETE /orcamentos/{categoria}` | define ou apaga o limite mensal |
 | `GET/POST /recorrentes`, `DELETE /recorrentes/{id}` | gastos que se repetem todo mês |
 | `GET /exportar?formato=xlsx` | baixa a planilha (ou `csv`) |
-| `POST /importar/previa` | recebe o CSV do Nubank (texto) e mostra o que entraria, sem salvar |
+| `POST /importar/previa` | recebe o arquivo (CSV do Nubank ou OFX) e mostra o que entraria, sem salvar |
 | `POST /importar` | salva os gastos revisados na prévia, sem repetir os já importados |
 | `GET /importar/exemplo.csv` | uma fatura de exemplo, com datas recentes, para testar |
 | `GET /meses`, `GET /categorias` | meses com gastos e categorias já usadas |
@@ -220,7 +221,7 @@ pytest
 
 Os testes do Postgres rodam quando `GASTOS_TESTE_POSTGRES` tem o endereço de um banco (cada teste usa um schema próprio, apagado no fim); sem ela, são pulados. No GitHub Actions, um Postgres 18 sobe junto com os testes.
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa) o modo demonstração (visitantes isolados, cookie inválido, pedidos simultâneos, limites e limpeza das contas antigas) e o login (convite, senha em argon2id, bloqueio de tentativas, sessão encerrada, CSRF, isolamento entre usuários e exclusão da conta). Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank e do OFX, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa) o modo demonstração (visitantes isolados, cookie inválido, pedidos simultâneos, limites e limpeza das contas antigas) e o login (convite, senha em argon2id, bloqueio de tentativas, sessão encerrada, CSRF, isolamento entre usuários e exclusão da conta). Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -232,7 +233,11 @@ controle-gastos/
 │   ├── exportacao.py     # exportar para .xlsx e CSV
 │   ├── formatacao.py     # valores em reais (R$ 1.234,50)
 │   ├── grafico.py        # gráfico de barras no terminal
-│   ├── importacao.py     # leitura do CSV do Nubank
+│   ├── importacao/       # leitura dos extratos
+│   │   ├── __init__.py   # ler_extrato: reconhece o formato pelo conteúdo
+│   │   ├── comum.py      # categorias, valores e o que ignorar (vale para todos)
+│   │   ├── nubank.py     # CSV do Nubank (fatura e conta)
+│   │   └── ofx.py        # OFX de qualquer banco (versões 1 e 2)
 │   ├── orcamento.py      # situação do orçamento (ok, atenção, estourou)
 │   ├── recorrentes.py    # regras de datas dos gastos recorrentes
 │   ├── modelo.py         # a classe Gasto
@@ -262,11 +267,13 @@ controle-gastos/
 - **Proteção contra CSV injection:** texto que começa com `=`, `+`, `-` ou `@` seria executado como fórmula pelo Excel; ele é exportado com um `'` na frente, e aparece só como texto.
 - **Gráfico com caracteres Unicode, sem matplotlib:** o programa vive no terminal, então o gráfico também. Os blocos `▏▎▍▌▋▊▉█` dão precisão de 1/8 de caractere, e um gasto pequeno sempre aparece com pelo menos `▏`. Categorias vêm da maior para a menor (fica fácil comparar); meses, em ordem cronológica.
 - **Orçamento decidido pelos valores exatos:** R$ 500,01 de R$ 500,00 aparece como 100% depois de arredondado, mas já estourou; por isso o nível é calculado comparando os valores em `Decimal`, não a porcentagem. Os casos de fronteira (79,99%, 80%, 100% e um centavo acima) têm testes.
-- **Importar sem duplicar:** cada gasto importado guarda sua `origem` numa coluna com índice `UNIQUE`. No extrato da conta, é o identificador que o próprio Nubank dá; na fatura, que não tem identificador, é data + descrição + valor + um contador, para que duas compras iguais no mesmo dia (dois cafés) continuem sendo duas. Importar o mesmo arquivo de novo não repete nada.
+- **Importar sem duplicar:** cada gasto importado guarda sua `origem` numa coluna com índice `UNIQUE`. No extrato da conta, é o identificador que o próprio Nubank dá; na fatura, que não tem identificador, é data + descrição + valor + um contador, para que duas compras iguais no mesmo dia (dois cafés) continuem sendo duas. Importar o mesmo arquivo de novo não repete nada. Atenção: o CSV e o OFX do mesmo banco dão origens diferentes para a mesma compra, então o mesmo período deve ser importado num formato só.
 - **Sem contar o mesmo dinheiro duas vezes:** do extrato da conta são ignorados as entradas, o pagamento da fatura (as compras já vêm da fatura do cartão), o dinheiro guardado em caixinhas/RDB e o **Pix no Crédito**: o Nubank registra na conta uma entrada "por cartão de crédito" e o Pix do mesmo valor no mesmo dia, mas quem paga é o cartão, e as parcelas (às vezes com juros) aparecem na fatura. Cada entrada cobre um Pix só, e ela pode vir antes ou depois dele no arquivo. Tudo que é ignorado aparece na tela com o motivo.
 - **Conferido com arquivos reais:** a fatura e o extrato da conta foram testados com CSVs reais; os casos que só apareceram neles (valor `"41,80"`, sinal separado `- 84,00`, Pix no Crédito, descrições longas) viraram testes, com nomes e contas inventados.
 - **Descrição do Pix enxuta:** "Transferência enviada pelo Pix - NOME - CPF mascarado - BANCO Agência Conta" vira "Pix enviado - NOME"; os dados bancários de terceiros não são guardados.
-- **Tudo ou nada:** o arquivo inteiro é lido antes de salvar qualquer coisa; se uma linha tiver data ou valor inválido, nada é importado e a mensagem diz qual linha.
+- **OFX: um leitor para quase todos os bancos:** OFX é o formato padrão que os bancos exportam para programas de finanças. Cada transação traz um identificador único dado pelo banco (`FITID`), que vira a origem; ao lado dele vai o código do banco e um resumo (SHA-256) do número da conta, para duas contas não se confundirem sem guardar o número em si. O arquivo é lido com expressões regulares, que funcionam nas duas versões do formato (1.x em SGML, com tags sem fechamento, e 2.x em XML). Muitos bancos ainda gravam o OFX em Windows-1252; o programa tenta UTF-8 primeiro e, se não der, lê em 1252. As regras do que ignorar (pagamento de fatura, aplicação, Pix no Crédito) são as mesmas do Nubank e aceitam os jeitos diferentes que cada banco escreve ("PAGTO FATURA", "Pagamento de fatura").
+- **Formato reconhecido pelo conteúdo:** o arquivo é identificado pelo que tem dentro (a tag `<OFX>` ou o cabeçalho do CSV), não pela extensão, que o usuário pode ter trocado.
+- **Tudo ou nada:** o arquivo inteiro é lido antes de salvar qualquer coisa; se uma linha tiver data ou valor inválido, nada é importado e a mensagem diz qual linha (ou qual transação, no OFX).
 - **Migração com `ALTER TABLE`:** bancos de versões anteriores não têm a coluna `origem`; ao abrir, o programa confere as colunas (`PRAGMA table_info`) e a acrescenta, sem mexer nos gastos.
 - **Gastos recorrentes que nunca se repetem:** cada recorrente guarda o próximo mês pendente (`proximo_mes`), que avança na mesma transação em que o gasto é inserido. Rodar o programa várias vezes no mesmo dia não duplica nada, e um gasto lançado que o usuário apagou não volta.
 - **Nada lançado para trás sem pedir:** um recorrente criado depois do dia dele começa no mês seguinte (o deste mês provavelmente já foi registrado à mão). `--desde` inclui meses passados, mas no máximo 12, para um erro de digitação como `2016` não criar 120 gastos.
@@ -287,7 +294,7 @@ controle-gastos/
 - **`NUMERIC(12, 2)` no Postgres:** diferente do SQLite, o Postgres tem um tipo decimal exato para dinheiro; o valor volta como `Decimal` e o banco também recusa valor negativo (`CHECK`).
 - **Contas antigas apagadas em cascata:** `ON DELETE CASCADE` apaga gastos, orçamentos e recorrentes junto com a conta vencida.
 - **Data de hoje no fuso do Brasil:** o servidor online roda em UTC; sem o fuso `America/Sao_Paulo`, às 22h de Brasília ele já estaria no dia seguinte.
-- **Importação em duas etapas:** a prévia só lê o arquivo e mostra o que entraria, com a categoria adivinhada; a página deixa corrigir cada categoria, e só então os itens revisados são salvos (numa transação, pulando origens já importadas). O arquivo vai como texto no corpo do pedido, então não é preciso upload com formulário (multipart) nem biblioteca a mais; a página envia os bytes do arquivo como vieram, e a API confere se é UTF-8 e recusa arquivos acima de 2 MB.
+- **Importação em duas etapas:** a prévia só lê o arquivo e mostra o que entraria, com a categoria adivinhada; a página deixa corrigir cada categoria, e só então os itens revisados são salvos (numa transação, pulando origens já importadas). O arquivo vai no corpo do pedido, então não é preciso upload com formulário (multipart) nem biblioteca a mais; a página envia os bytes do arquivo como vieram, a API descobre o formato e a codificação e recusa arquivos acima de 2 MB.
 - **Migração no Postgres:** o banco online já existia sem a coluna `origem`; `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` a acrescenta na primeira vez, sem mexer nos gastos, e há um teste que parte de um banco no formato antigo.
 - **Sem `innerHTML` no front:** tudo que vem da API entra na página com `textContent`, então uma descrição como `<script>` aparece como texto e não é executada (proteção contra XSS).
 - **Linha de comando só com a biblioteca padrão:** `argparse`, `sqlite3`, `csv`, `zipfile`, `dataclasses` e `pathlib` resolvem o problema sem dependências externas. FastAPI e uvicorn são usados só pela versão web.
@@ -303,7 +310,8 @@ controle-gastos/
 - [x] Orçamento mensal por categoria com alertas
 - [x] Gastos recorrentes lançados automaticamente
 - [x] Importar o extrato CSV do Nubank
-- [ ] Importar extratos de outros bancos (Inter, Itaú) e OFX
+- [x] Importar extratos em OFX (qualquer banco: Inter, Itaú, Nubank...)
+- [ ] Importar o CSV do Inter (conferido com um arquivo real)
 - [x] Versão web com API REST (FastAPI)
 - [x] Colocar a versão web no ar (Vercel)
 - [x] Contas de usuário com login
