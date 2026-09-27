@@ -27,7 +27,8 @@ TOTAL             R$ 960,20
 - **Remover** um gasto pelo número
 - **Resumir** o total por categoria, com filtro por mês
 - **Gráfico** de barras no terminal, por categoria ou por mês
-- **Importar extratos:** CSV do Nubank ou **OFX de qualquer banco** (Inter, Itaú, Nubank...), da fatura do cartão ou da conta, com categoria adivinhada pela descrição, `--simular` e sem nunca importar o mesmo gasto duas vezes
+- **Importar extratos:** CSV do Nubank ou **OFX de qualquer banco** (Inter, Itaú, Nubank...), da fatura do cartão ou da conta, com categoria adivinhada pela descrição, `--simular`, linhas que podem ser deixadas de fora e sem nunca importar o mesmo gasto duas vezes
+- **Pix para outra conta sua não é gasto:** com o seu nome cadastrado, a transferência do Inter para o Nubank (por exemplo) só troca o dinheiro de lugar e fica de fora
 - **Gastos recorrentes** (aluguel, internet, assinaturas), lançados sozinhos quando o dia chega, inclusive os meses em que o programa não foi aberto
 - **Orçamento** mensal por categoria, com aviso de ATENÇÃO a partir de 80% e de ESTOUROU acima do limite, mostrado também ao adicionar ou editar um gasto
 - **Exportar** para planilha do Excel (`.xlsx`) ou CSV, geral ou de um mês; o `.xlsx` sai com valores em R$, datas de verdade e linha de total com fórmula
@@ -77,6 +78,12 @@ python -m gastos grafico --por mes         # evolução mês a mês
 python -m gastos importar Nubank_2026-09.csv --simular   # só mostra o que entraria
 python -m gastos importar Nubank_2026-09.csv
 python -m gastos importar extrato-inter.ofx              # o formato é reconhecido pelo conteúdo
+python -m gastos importar extrato-inter.ofx --pular 2,5  # deixa de fora as linhas 2 e 5 da lista
+
+# Seu nome como aparece nos extratos: Pix enviado para ele é transferência entre contas suas
+python -m gastos meu-nome adicionar "Ana Souza Lima"
+python -m gastos meu-nome                                # lista os nomes
+python -m gastos meu-nome remover "Ana Souza Lima"
 
 # Gastos recorrentes: lançados sozinhos quando o dia chega
 python -m gastos recorrente adicionar 1200 aluguel --dia 5
@@ -186,6 +193,7 @@ Depois, abra http://127.0.0.1:8000 no navegador. A página usa o mesmo banco da 
 | `GET /exportar?formato=xlsx` | baixa a planilha (ou `csv`) |
 | `POST /importar/previa` | recebe o arquivo (CSV do Nubank ou OFX) e mostra o que entraria, sem salvar |
 | `POST /importar` | salva os gastos revisados na prévia, sem repetir os já importados |
+| `GET/POST /importar/meus-nomes`, `DELETE /importar/meus-nomes/{nome}` | nomes do usuário: Pix enviado para eles não é gasto |
 | `GET /importar/exemplo.csv` | uma fatura de exemplo, com datas recentes, para testar |
 | `GET /meses`, `GET /categorias` | meses com gastos e categorias já usadas |
 | `POST /conta/cadastro`, `POST /conta/entrar`, `POST /conta/sair` | contas (só na versão online) |
@@ -272,6 +280,10 @@ controle-gastos/
 - **Conferido com arquivos reais:** a fatura e o extrato da conta foram testados com CSVs reais; os casos que só apareceram neles (valor `"41,80"`, sinal separado `- 84,00`, Pix no Crédito, descrições longas) viraram testes, com nomes e contas inventados.
 - **Descrição do Pix enxuta:** "Transferência enviada pelo Pix - NOME - CPF mascarado - BANCO Agência Conta" vira "Pix enviado - NOME"; os dados bancários de terceiros não são guardados.
 - **OFX: um leitor para quase todos os bancos:** OFX é o formato padrão que os bancos exportam para programas de finanças. Cada transação traz um identificador único dado pelo banco (`FITID`), que vira a origem; ao lado dele vai o código do banco e um resumo (SHA-256) do número da conta, para duas contas não se confundirem sem guardar o número em si. O arquivo é lido com expressões regulares, que funcionam nas duas versões do formato (1.x em SGML, com tags sem fechamento, e 2.x em XML). Muitos bancos ainda gravam o OFX em Windows-1252; o programa tenta UTF-8 primeiro e, se não der, lê em 1252. As regras do que ignorar (pagamento de fatura, aplicação, Pix no Crédito) são as mesmas do Nubank e aceitam os jeitos diferentes que cada banco escreve ("PAGTO FATURA", "Pagamento de fatura").
+- **Conferido com o extrato real do Inter:** o OFX do Inter diz `CHARSET:1252` no cabeçalho, mas vem em UTF-8 (por isso o UTF-8 é tentado primeiro), e escreve o Pix como `Pix enviado: "Cp :18236120-Nome"`, com o código do banco da outra ponta; a descrição vira "Pix enviado - Nome", usando o nome com acentos do campo `NAME`.
+- **Transferência para si mesmo:** o arquivo não diz de quem é a conta, então o usuário cadastra o próprio nome. A comparação ignora acentos e maiúsculas ("André" = "ANDRE") e só vale para o nome inteiro, entre limites de palavra: "Ana Lima" não esconde "Ana Limeira" nem "Joana Lima". Por isso o nome precisa ter sobrenome. A regra vale para todos os formatos, inclusive o CSV do Nubank.
+- **Deixar linhas de fora:** para os casos que nenhuma regra pega, a prévia da página tem uma caixa por linha, e a linha de comando numera a lista e aceita `--pular 2,5`. Um número que não existe na lista cancela tudo, em vez de importar sem aquela linha.
+- **CSV do Inter recusado com explicação:** ele não tem identificador por transação (o OFX tem), então uma segunda importação do mesmo período poderia duplicar gastos. O programa reconhece o arquivo e pede o OFX.
 - **Formato reconhecido pelo conteúdo:** o arquivo é identificado pelo que tem dentro (a tag `<OFX>` ou o cabeçalho do CSV), não pela extensão, que o usuário pode ter trocado.
 - **Tudo ou nada:** o arquivo inteiro é lido antes de salvar qualquer coisa; se uma linha tiver data ou valor inválido, nada é importado e a mensagem diz qual linha (ou qual transação, no OFX).
 - **Migração com `ALTER TABLE`:** bancos de versões anteriores não têm a coluna `origem`; ao abrir, o programa confere as colunas (`PRAGMA table_info`) e a acrescenta, sem mexer nos gastos.
@@ -311,7 +323,9 @@ controle-gastos/
 - [x] Gastos recorrentes lançados automaticamente
 - [x] Importar o extrato CSV do Nubank
 - [x] Importar extratos em OFX (qualquer banco: Inter, Itaú, Nubank...)
-- [ ] Importar o CSV do Inter (conferido com um arquivo real)
+- [x] Conferir o OFX com um extrato real do Inter
+- [x] Ignorar Pix para outra conta sua e deixar linhas de fora da importação
+- [ ] Conferir o OFX de outros bancos (Itaú, Nubank) com arquivos reais
 - [x] Versão web com API REST (FastAPI)
 - [x] Colocar a versão web no ar (Vercel)
 - [x] Contas de usuário com login
