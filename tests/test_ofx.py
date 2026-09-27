@@ -3,7 +3,14 @@ from decimal import Decimal
 
 import pytest
 
-from gastos.importacao import CARTAO, CONTA, FormatoDesconhecido, LinhaInvalida, ler_extrato
+from gastos.importacao import (
+    CARTAO,
+    CONTA,
+    FormatoDesconhecido,
+    LinhaInvalida,
+    ler_extrato,
+    validar_meu_nome,
+)
 
 # OFX 1.x (SGML), como o Inter e muitos bancos exportam: cabeçalho em linhas, tags sem
 # fechamento e texto em Windows-1252. Nomes e números inventados.
@@ -278,3 +285,74 @@ def test_jeitos_diferentes_de_escrever_fatura_e_investimento(descricao, ignorado
 
     assert (len(extrato.ignorados) == 1) is ignorado
 
+
+
+# Como o Inter escreve o Pix no OFX (conferido com um arquivo real de 2026; nomes inventados):
+# MEMO com o código do banco da outra ponta e NAME com o nome, às vezes com acento.
+def test_descricao_do_pix_do_inter_sem_o_codigo_do_banco():
+    blocos = [
+        '<STMTTRN><DTPOSTED>20260828<TRNAMT>-42.00<FITID>1'
+        '<MEMO>Pix enviado: "Cp :18236120-Joana Souza Lima"<NAME>Joana Souza Lima</STMTTRN>',
+        '<STMTTRN><DTPOSTED>20260828<TRNAMT>36.00<FITID>2'
+        '<MEMO>Pix recebido: "Cp :00000000-JOSE DA SILVA"<NAME>José da Silva</STMTTRN>',
+        '<STMTTRN><DTPOSTED>20260828<TRNAMT>-5.00<FITID>3'
+        '<MEMO>Pix enviado: "Cp :31872495-Maria Reis"</STMTTRN>',  # sem NAME
+    ]
+    extrato = ler_extrato(conta(*blocos))
+
+    assert [g.descricao for g, _ in extrato.itens] == ["Pix enviado - Joana Souza Lima", "Pix enviado - Maria Reis"]
+    assert [i.descricao for i in extrato.ignorados] == ["Pix recebido - José da Silva"]
+
+
+# --- Pix para outra conta sua ---
+
+
+def pix_enviado(nome, fitid="1", valor="-100.00"):
+    return f'<STMTTRN><DTPOSTED>20260918<TRNAMT>{valor}<FITID>{fitid}<MEMO>Pix enviado: "Cp :18236120-{nome}"</STMTTRN>'
+
+
+def test_pix_para_o_proprio_nome_e_ignorado_sem_ligar_para_acento_e_maiusculas():
+    arquivo = conta(pix_enviado("Andre Souza Lima", "1"), pix_enviado("Joana Reis", "2"))
+
+    extrato = ler_extrato(arquivo, ["André SOUZA  Lima"])
+
+    assert [g.descricao for g, _ in extrato.itens] == ["Pix enviado - Joana Reis"]
+    assert [(i.descricao, i.valor, i.motivo) for i in extrato.ignorados] == [
+        ("Pix enviado - Andre Souza Lima", Decimal("100.00"), "transferência para uma conta sua")
+    ]
+
+
+def test_sem_nomes_cadastrados_o_pix_para_si_continua_sendo_gasto():
+    assert len(ler_extrato(conta(pix_enviado("Andre Souza Lima"))).itens) == 1
+
+
+def test_nome_so_vale_inteiro():
+    # "Ana Lima" não pode esconder o Pix para "Ana Limeira" nem para "Joana Lima".
+    arquivo = conta(pix_enviado("Ana Limeira", "1"), pix_enviado("Joana Lima", "2"))
+
+    assert len(ler_extrato(arquivo, ["Ana Lima"]).itens) == 2
+
+
+def test_nome_tambem_vale_no_csv_do_nubank():
+    csv = "Data,Valor,Identificador,Descrição\n01/09/2026,-50.00,a1,Transferência enviada pelo Pix - ANA LIMA - •••.1-•• - BANCO INTER (0077) Agência: 1 Conta: 2-3\n"
+
+    extrato = ler_extrato(csv.encode(), ["Ana Lima"])
+
+    assert extrato.itens == [] and extrato.ignorados[0].motivo == "transferência para uma conta sua"
+
+
+@pytest.mark.parametrize("nome", ["Ana", "   ", "A" * 60 + " " + "B" * 60])
+def test_nome_precisa_de_sobrenome_e_tamanho_razoavel(nome):
+    with pytest.raises(ValueError):
+        validar_meu_nome(nome)
+
+
+def test_nome_valido_tem_os_espacos_arrumados():
+    assert validar_meu_nome("  Ana   Lima ") == "Ana Lima"
+
+
+def test_csv_do_inter_pede_o_ofx():
+    csv = " Extrato Conta Corrente \nConta ;123\nPeríodo ;27/08/2026 a 27/09/2026\nSaldo ;0,00\n\nData Lançamento;Histórico;Descrição;Valor;Saldo\n18/09/2026;Pix recebido;Fulano;100,00;0,00\n"
+
+    with pytest.raises(FormatoDesconhecido, match="CSV do Inter. Baixe o mesmo extrato em OFX"):
+        ler_extrato(csv.encode())

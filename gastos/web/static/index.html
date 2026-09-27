@@ -79,12 +79,27 @@
             <input type="file" id="arquivo-csv" accept=".csv,.ofx,text/csv,application/x-ofx" class="invisivel">
           </label>
 
+          <details class="meus-nomes">
+            <summary id="meus-nomes-titulo">Pix para outra conta sua</summary>
+            <p class="bloco__nota">
+              Cadastre seu nome como aparece nos extratos: Pix enviado para ele (do Inter para o
+              Nubank, por exemplo) só troca o dinheiro de lugar e não entra como gasto.
+            </p>
+            <ul class="meus-nomes__lista" id="meus-nomes-lista"></ul>
+            <form class="meus-nomes__form" id="form-meu-nome">
+              <input class="campo campo--pequeno" id="campo-meu-nome" maxlength="100"
+                     placeholder="Nome Sobrenome" aria-label="Seu nome como aparece no extrato" required>
+              <button class="botao botao--pequeno botao--fantasma" type="submit">Adicionar</button>
+            </form>
+          </details>
+
           <!-- Prévia: preenchida pelo app.js com POST /importar/previa -->
           <div class="previa" id="previa" hidden>
             <p class="previa__resumo" id="previa-resumo"></p>
             <table class="tabela tabela--previa" id="previa-tabela">
               <thead>
                 <tr>
+                  <th scope="col"><span class="invisivel">Importar</span></th>
                   <th scope="col">Data</th>
                   <th scope="col">Descrição</th>
                   <th scope="col">Categoria</th>

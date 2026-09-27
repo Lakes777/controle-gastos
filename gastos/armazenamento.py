@@ -13,6 +13,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+from gastos.importacao.comum import sem_acentos
 from gastos.modelo import Gasto
 from gastos.recorrentes import Recorrente, datas_pendentes, mes_seguinte
 
@@ -47,6 +48,12 @@ CREATE TABLE IF NOT EXISTS recorrentes (
 )
 """
 
+CRIAR_TABELA_MEUS_NOMES = """
+CREATE TABLE IF NOT EXISTS meus_nomes (
+    nome TEXT PRIMARY KEY  -- o nome do usuário como aparece nos extratos (Pix para si mesmo)
+)
+"""
+
 
 class Banco:
     def __init__(self, caminho: Path | str = CAMINHO_PADRAO) -> None:
@@ -57,6 +64,7 @@ class Banco:
             # Bancos criados por versões antigas ganham a tabela nova aqui, sem perder nada.
             conexao.execute(CRIAR_TABELA_ORCAMENTOS)
             conexao.execute(CRIAR_TABELA_RECORRENTES)
+            conexao.execute(CRIAR_TABELA_MEUS_NOMES)
             self._adicionar_coluna_origem(conexao)
         self._importar_json_antigo()
 
@@ -184,6 +192,25 @@ class Banco:
         with self._conectar() as conexao:
             linhas = conexao.execute("SELECT * FROM orcamentos ORDER BY categoria").fetchall()
         return {linha["categoria"]: Decimal(linha["limite"]) for linha in linhas}
+
+    def listar_meus_nomes(self) -> list[str]:
+        with self._conectar() as conexao:
+            return [linha["nome"] for linha in conexao.execute("SELECT nome FROM meus_nomes ORDER BY nome")]
+
+    def adicionar_meu_nome(self, nome: str) -> bool:
+        """Devolve False se o nome já estava (sem diferença de acentos e maiúsculas)."""
+        if sem_acentos(nome) in {sem_acentos(n) for n in self.listar_meus_nomes()}:
+            return False
+        with self._conectar() as conexao:
+            conexao.execute("INSERT INTO meus_nomes (nome) VALUES (?)", (nome,))
+        return True
+
+    def remover_meu_nome(self, nome: str) -> bool:
+        """Apaga o nome (sem diferença de acentos e maiúsculas). False se não estava."""
+        iguais = [n for n in self.listar_meus_nomes() if sem_acentos(n) == sem_acentos(nome)]
+        with self._conectar() as conexao:
+            conexao.executemany("DELETE FROM meus_nomes WHERE nome = ?", [(n,) for n in iguais])
+        return bool(iguais)
 
     @staticmethod
     def _para_recorrente(linha: sqlite3.Row) -> Recorrente:

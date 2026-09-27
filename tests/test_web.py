@@ -422,3 +422,44 @@ def test_importar_ofx_pela_pagina(cliente):
     resultado = cliente.post("/importar", json={"itens": dados["novos"]}).json()
     assert resultado == {"importados": 2, "repetidos": 0}
     assert (previa()["novos"], previa()["repetidos"]) == ([], 2)
+
+
+def test_meus_nomes_pela_api(cliente):
+    assert cliente.get("/importar/meus-nomes").json() == []
+
+    resposta = cliente.post("/importar/meus-nomes", json={"nome": " Ana   Lima "})
+    assert (resposta.status_code, resposta.json()) == (201, ["Ana Lima"])
+    assert cliente.post("/importar/meus-nomes", json={"nome": "ANA LIMA"}).status_code == 409
+
+    sem_sobrenome = cliente.post("/importar/meus-nomes", json={"nome": "Ana"})
+    assert sem_sobrenome.status_code == 422
+    assert sem_sobrenome.json()["detail"].startswith("Informe nome e sobrenome")
+
+    assert cliente.delete("/importar/meus-nomes/ana%20lima").status_code == 204
+    assert cliente.delete("/importar/meus-nomes/Ana%20Lima").status_code == 404
+    assert cliente.get("/importar/meus-nomes").json() == []
+
+
+def test_meus_nomes_tem_limite(cliente, monkeypatch):
+    monkeypatch.setattr("gastos.web.rotas.MAXIMO_DE_NOMES", 1)
+    assert cliente.post("/importar/meus-nomes", json={"nome": "Ana Lima"}).status_code == 201
+    assert cliente.post("/importar/meus-nomes", json={"nome": "Ana Souza"}).status_code == 403
+
+
+def test_previa_ignora_pix_para_o_proprio_nome(cliente):
+    extrato = """Data,Valor,Identificador,Descrição
+01/09/2026,-50.00,a1,Transferência enviada pelo Pix - ANA LIMA - •••.1-•• - BANCO INTER (0077) Agência: 1 Conta: 2-3
+02/09/2026,-20.00,a2,Transferência enviada pelo Pix - JOANA REIS
+"""
+    assert len(previa(cliente, extrato).json()["novos"]) == 2
+
+    cliente.post("/importar/meus-nomes", json={"nome": "Ana Lima"})
+    dados = previa(cliente, extrato).json()
+    assert [n["descricao"] for n in dados["novos"]] == ["Pix enviado - JOANA REIS"]
+    assert dados["ignorados"][0]["motivo"] == "transferência para uma conta sua"
+
+
+def test_previa_do_csv_do_inter_pede_o_ofx(cliente):
+    resposta = previa(cliente, " Extrato Conta Corrente \nConta ;1\n")
+    assert resposta.status_code == 422
+    assert "Baixe o mesmo extrato em OFX" in resposta.json()["detail"]

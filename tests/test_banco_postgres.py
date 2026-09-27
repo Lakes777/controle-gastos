@@ -82,6 +82,18 @@ def test_orcamentos(banco):
     assert list(banco.listar_orcamentos()) == ["mercado"]
 
 
+def test_meus_nomes(banco):
+    assert banco.listar_meus_nomes() == []
+    assert banco.adicionar_meu_nome("André Souza")
+    assert banco.adicionar_meu_nome("Ana Lima")
+    assert not banco.adicionar_meu_nome("andre  SOUZA")  # o mesmo, sem acento e em maiúsculas
+
+    assert banco.listar_meus_nomes() == ["Ana Lima", "André Souza"]
+    assert banco.remover_meu_nome("ANDRE SOUZA")
+    assert not banco.remover_meu_nome("André Souza")
+    assert banco.listar_meus_nomes() == ["Ana Lima"]
+
+
 def test_recorrentes_lancados_uma_vez_so(banco):
     rec = banco.adicionar_recorrente(Recorrente(Decimal("1200"), "aluguel", 5, "2026-08"))
 
@@ -126,6 +138,9 @@ def test_cada_conta_so_ve_e_mexe_no_que_e_dela(postgres):
     assert b.buscar(gasto_de_a.id) is None
     assert b.listar_orcamentos() == {}
     assert b.listar_recorrentes() == []
+    a.adicionar_meu_nome("Ana Lima")
+    assert b.listar_meus_nomes() == []
+    assert not b.remover_meu_nome("Ana Lima")
     # Mesmo sabendo o número, b não consegue editar nem apagar o gasto de a.
     assert not b.atualizar(Gasto(Decimal("1"), "hack", "", date(2026, 9, 1), id=gasto_de_a.id))
     assert not b.remover(gasto_de_a.id)

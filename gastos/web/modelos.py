@@ -161,6 +161,10 @@ class PedidoImportacao(BaseModel):
     itens: list[ItemImportado] = Field(max_length=2000)
 
 
+class MeuNome(BaseModel):
+    nome: str = Field(max_length=200, description="Nome e sobrenome, como aparecem no extrato")
+
+
 class ResultadoImportacao(BaseModel):
     importados: int
     repetidos: int = Field(description="Já estavam no banco e foram pulados")

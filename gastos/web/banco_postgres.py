@@ -19,6 +19,7 @@ from decimal import Decimal
 import psycopg
 from psycopg.rows import dict_row
 
+from gastos.importacao.comum import sem_acentos
 from gastos.modelo import Gasto
 from gastos.recorrentes import Recorrente, datas_pendentes, mes_seguinte
 
@@ -71,6 +72,14 @@ CRIAR_TABELAS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS recorrentes_conta ON recorrentes (conta)",
+    # O nome do usuário como aparece nos extratos: Pix para ele mesmo não é gasto.
+    """
+    CREATE TABLE IF NOT EXISTS meus_nomes (
+        conta TEXT NOT NULL REFERENCES contas (id) ON DELETE CASCADE,
+        nome  TEXT NOT NULL,
+        PRIMARY KEY (conta, nome)
+    )
+    """,
     # ---------- Login ----------
     # Migração: as contas eram só de visitantes da demonstração. Agora podem ser de
     # usuários, com e-mail e senha (o hash da senha, nunca a senha).
@@ -210,6 +219,32 @@ class BancoPostgres:
             (self.conta,),
         ).fetchall()
         return {linha["categoria"]: linha["limite"] for linha in linhas}
+
+    # ---------- Meus nomes (Pix para outra conta do usuário) ----------
+
+    def listar_meus_nomes(self) -> list[str]:
+        linhas = self.conexao.execute(
+            "SELECT nome FROM meus_nomes WHERE conta = %s ORDER BY nome", (self.conta,)
+        ).fetchall()
+        return [linha["nome"] for linha in linhas]
+
+    def adicionar_meu_nome(self, nome: str) -> bool:
+        with self._transacao() as conexao:
+            if sem_acentos(nome) in {sem_acentos(n) for n in self.listar_meus_nomes()}:
+                return False
+            conexao.execute(
+                "INSERT INTO meus_nomes (conta, nome) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                (self.conta, nome),
+            )
+        return True
+
+    def remover_meu_nome(self, nome: str) -> bool:
+        iguais = [n for n in self.listar_meus_nomes() if sem_acentos(n) == sem_acentos(nome)]
+        with self._transacao() as conexao:
+            conexao.execute(
+                "DELETE FROM meus_nomes WHERE conta = %s AND nome = ANY(%s)", (self.conta, iguais)
+            )
+        return bool(iguais)
 
     # ---------- Recorrentes ----------
 

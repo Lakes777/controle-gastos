@@ -6,7 +6,14 @@ from decimal import Decimal
 
 import pytest
 
-from gastos.__main__ import dia_do_mes, formatar_reais, main, mes_valido, valor_positivo
+from gastos.__main__ import (
+    dia_do_mes,
+    formatar_reais,
+    main,
+    mes_valido,
+    numeros,
+    valor_positivo,
+)
 from tests.test_ofx import CONTA_INTER
 
 
@@ -492,7 +499,7 @@ def test_importar_simular_nao_salva_nada(tmp_path, monkeypatch, capsys):
     rodar(monkeypatch, "importar", "fatura.csv", "--simular")
     saida = capsys.readouterr().out
     assert "Arquivo reconhecido: fatura do cartão do Nubank (CSV)" in saida
-    assert "+ 05/09/2026      R$ 23,59  transporte    Uber *Trip" in saida
+    assert "+  1  05/09/2026      R$ 23,59  transporte    Uber *Trip" in saida
     assert "Pagamento recebido (ignorado: pagamento ou estorno)" in saida
     assert "2 gasto(s) seriam importados" in saida and "Nada foi salvo" in saida
 
@@ -569,3 +576,78 @@ def test_importar_ofx_pela_linha_de_comando(tmp_path, monkeypatch, capsys):
 
     rodar(monkeypatch, "importar", "extrato.ofx")
     assert "0 gasto(s) importado(s), 2 já importado(s) antes" in capsys.readouterr().out
+
+
+PIX_PARA_SI = (
+    "<OFX><BANKMSGSRSV1><STMTRS><BANKACCTFROM><BANKID>077<ACCTID>1</BANKACCTFROM><BANKTRANLIST>"
+    '<STMTTRN><DTPOSTED>20260918<TRNAMT>-100.00<FITID>1<MEMO>Pix enviado: "Cp :1-Ana Lima"</STMTTRN>'
+    '<STMTTRN><DTPOSTED>20260919<TRNAMT>-42.00<FITID>2<MEMO>Pix enviado: "Cp :1-Joana Reis"</STMTTRN>'
+    '<STMTTRN><DTPOSTED>20260920<TRNAMT>-8.50<FITID>3<MEMO>Padaria Bela Vista</STMTTRN>'
+    "</BANKTRANLIST></STMTRS></BANKMSGSRSV1></OFX>"
+)
+
+
+def test_meu_nome_adicionar_listar_e_remover(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    rodar(monkeypatch, "meu-nome")
+    assert "Nenhum nome cadastrado" in capsys.readouterr().out
+    rodar(monkeypatch, "meu-nome", "adicionar", "  Ana   Lima ")
+    assert "Nome cadastrado: Ana Lima" in capsys.readouterr().out
+    with pytest.raises(SystemExit, match="já estava cadastrado"):
+        rodar(monkeypatch, "meu-nome", "adicionar", "ANA LIMA")
+    with pytest.raises(SystemExit):
+        rodar(monkeypatch, "meu-nome", "adicionar", "Ana")  # sem sobrenome
+    rodar(monkeypatch, "meu-nome")
+    assert "  Ana Lima" in capsys.readouterr().out
+
+    rodar(monkeypatch, "meu-nome", "remover", "ana lima")
+    assert "Nome removido" in capsys.readouterr().out
+    with pytest.raises(SystemExit, match="não estava cadastrado"):
+        rodar(monkeypatch, "meu-nome", "remover", "Ana Lima")
+
+
+def test_importar_ignora_pix_para_o_proprio_nome(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "extrato.ofx").write_text(PIX_PARA_SI, encoding="utf-8")
+
+    rodar(monkeypatch, "importar", "extrato.ofx", "--simular")
+    saida = capsys.readouterr().out
+    assert "3 gasto(s) seriam importados" in saida
+    assert "Cadastre seu nome" in saida  # a dica aparece enquanto não há nome
+
+    rodar(monkeypatch, "meu-nome", "adicionar", "Ana Lima")
+    rodar(monkeypatch, "importar", "extrato.ofx")
+    saida = capsys.readouterr().out
+    assert "Pix enviado - Ana Lima (ignorado: transferência para uma conta sua)" in saida
+    assert "2 gasto(s) importado(s)" in saida
+
+
+def test_importar_pulando_linhas(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "extrato.ofx").write_text(PIX_PARA_SI, encoding="utf-8")
+
+    rodar(monkeypatch, "importar", "extrato.ofx", "--pular", "1,3")
+    saida = capsys.readouterr().out
+    assert "x  1  18/09/2026" in saida and "(pulado)" in saida
+    assert "1 gasto(s) importado(s), 2 pulado(s)" in saida
+
+    rodar(monkeypatch, "listar")
+    saida = capsys.readouterr().out
+    assert "Joana Reis" in saida and "Ana Lima" not in saida and "Padaria" not in saida
+
+
+@pytest.mark.parametrize("pular", ["4", "0"])
+def test_pular_numero_que_nao_existe_nao_importa_nada(tmp_path, monkeypatch, capsys, pular):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "extrato.ofx").write_text(PIX_PARA_SI, encoding="utf-8")
+
+    with pytest.raises(SystemExit, match=f"não tem o número {pular}"):
+        rodar(monkeypatch, "importar", "extrato.ofx", "--pular", pular)
+    rodar(monkeypatch, "listar")
+    assert "Nenhum gasto registrado" in capsys.readouterr().out
+
+
+def test_pular_recusa_texto():
+    with pytest.raises(argparse.ArgumentTypeError):
+        numeros("1,dois")

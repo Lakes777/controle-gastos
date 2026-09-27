@@ -433,7 +433,8 @@ async function removerRecorrente(r) {
 
 // ---------- Importação (CSV do Nubank ou OFX) ----------
 
-const importacao = { novos: [], camposCategoria: [] };
+// arquivo: o último escolhido, para refazer a prévia quando os nomes mudam.
+const importacao = { arquivo: null, novos: [], camposCategoria: [], marcados: [] };
 
 async function lerArquivo(evento) {
   const arquivo = evento.target.files[0];
@@ -442,6 +443,12 @@ async function lerArquivo(evento) {
   if (arquivo.size > 2_000_000) {
     return mostrarMensagem("Arquivo grande demais (o máximo é 2 MB).", true);
   }
+  importacao.arquivo = arquivo;
+  await pedirPrevia();
+}
+
+async function pedirPrevia() {
+  const arquivo = importacao.arquivo;
   try {
     // O arquivo vai como veio (bytes): quem descobre o formato e a codificação é a API.
     const previa = await api("/importar/previa", {
@@ -483,9 +490,22 @@ function mostrarPrevia(previa, nomeDoArquivo) {
   );
 
   $("#previa-tabela").hidden = previa.novos.length === 0;
+  // Cada linha começa marcada; desmarcar deixa o gasto de fora da importação.
+  importacao.marcados = previa.novos.map((item) => {
+    const caixa = el("input", {
+      type: "checkbox", "aria-label": `Importar ${item.descricao || "gasto"}`,
+    });
+    caixa.checked = true;
+    caixa.addEventListener("change", () => {
+      caixa.closest("tr").classList.toggle("pulada", !caixa.checked);
+      atualizarBotaoImportar();
+    });
+    return caixa;
+  });
   $("#previa-linhas").replaceChildren(
     ...previa.novos.map((item, i) =>
       el("tr", {},
+        el("td", { class: "tabela__marcar" }, importacao.marcados[i]),
         el("td", { class: "tabela__data", text: formatarData(item.data) }),
         el("td", { class: "tabela__descricao", text: item.descricao || "—" }),
         el("td", { class: "tabela__categoria" }, importacao.camposCategoria[i]),
@@ -506,27 +526,32 @@ function mostrarPrevia(previa, nomeDoArquivo) {
     ),
   );
 
-  const botao = $("#botao-importar");
-  botao.disabled = previa.novos.length === 0;
-  botao.textContent = previa.novos.length
-    ? `Importar ${plural(previa.novos.length, "gasto", "gastos")}`
-    : "Importar";
+  atualizarBotaoImportar();
   $("#previa").hidden = false;
   $("#previa").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function atualizarBotaoImportar() {
+  const quantos = importacao.marcados.filter((caixa) => caixa.checked).length;
+  const botao = $("#botao-importar");
+  botao.disabled = quantos === 0;
+  botao.textContent = quantos ? `Importar ${plural(quantos, "gasto", "gastos")}` : "Importar";
+}
+
 function esconderPrevia() {
+  importacao.arquivo = null;
   importacao.novos = [];
   importacao.camposCategoria = [];
+  importacao.marcados = [];
   $("#previa").hidden = true;
 }
 
 async function importarRevisados() {
-  const itens = importacao.novos.map((item, i) => ({
-    ...item,
-    categoria: importacao.camposCategoria[i].value.trim(),
-  }));
-  importacao.camposCategoria.forEach((campo) => marcarInvalido(campo, !campo.value.trim()));
+  const escolhidos = importacao.novos
+    .map((item, i) => ({ item, campo: importacao.camposCategoria[i], caixa: importacao.marcados[i] }))
+    .filter(({ caixa }) => caixa.checked);
+  const itens = escolhidos.map(({ item, campo }) => ({ ...item, categoria: campo.value.trim() }));
+  escolhidos.forEach(({ campo }) => marcarInvalido(campo, !campo.value.trim()));
   if (itens.some((item) => !item.categoria)) {
     return mostrarMensagem("Preencha a categoria de todos os gastos.", true);
   }
@@ -544,6 +569,48 @@ async function importarRevisados() {
   } catch (erro) {
     botao.disabled = false;
     mostrarMensagem(erro.message, true);
+  }
+}
+
+// ---------- Meus nomes (Pix para outra conta sua não é gasto) ----------
+
+function desenharMeusNomes(nomes) {
+  $("#meus-nomes-titulo").textContent = nomes.length
+    ? `Pix para outra conta sua (${plural(nomes.length, "nome cadastrado", "nomes cadastrados")})`
+    : "Pix para outra conta sua";
+  $("#meus-nomes-lista").replaceChildren(
+    ...nomes.map((nome) => {
+      const remover = el("button", {
+        class: "botao-texto botao-texto--perigo", type: "button", text: "Remover",
+        "aria-label": `Remover o nome ${nome}`,
+      });
+      remover.addEventListener("click", () => mudarMeusNomes(
+        () => api(`/importar/meus-nomes/${encodeURIComponent(nome)}`, { method: "DELETE" }),
+      ));
+      return el("li", {}, el("span", { text: nome }), remover);
+    }),
+  );
+}
+
+async function adicionarMeuNome(evento) {
+  evento.preventDefault();
+  const campo = $("#campo-meu-nome");
+  const ok = await mudarMeusNomes(() => api("/importar/meus-nomes", {
+    method: "POST", body: JSON.stringify({ nome: campo.value }),
+  }));
+  if (ok) campo.value = "";
+}
+
+// Faz a mudança, redesenha a lista e, se houver prévia aberta, refaz com os nomes novos.
+async function mudarMeusNomes(mudanca) {
+  try {
+    await mudanca();
+    desenharMeusNomes(await api("/importar/meus-nomes"));
+    if (importacao.arquivo) await pedirPrevia();
+    return true;
+  } catch (erro) {
+    mostrarMensagem(erro.message, true);
+    return false;
   }
 }
 
@@ -660,12 +727,13 @@ function iniciarConta() {
 async function recarregar() {
   const mesOrcamento = estado.mes || mesDeHoje();
   // Os pedidos saem juntos (Promise.all) em vez de um esperar o outro.
-  const [resumo, gastos, situacoes, recorrentes, categorias] = await Promise.all([
+  const [resumo, gastos, situacoes, recorrentes, categorias, meusNomes] = await Promise.all([
     api(`/resumo${filtroMes()}`),
     api(`/gastos${filtroMes()}`),
     api(`/orcamentos?mes=${mesOrcamento}`),
     api("/recorrentes"),
     api("/categorias"),
+    api("/importar/meus-nomes"),
     carregarMeses(),
   ]);
   desenharNumeros(resumo, gastos);
@@ -673,6 +741,7 @@ async function recarregar() {
   desenharGastos(gastos);
   desenharOrcamentos(situacoes, mesOrcamento);
   desenharRecorrentes(recorrentes);
+  desenharMeusNomes(meusNomes);
   $("#lista-categorias").replaceChildren(...categorias.map((c) => el("option", { value: c })));
   $("#exportar-xlsx").href = `/exportar?formato=xlsx${filtroMes().replace("?", "&")}`;
   $("#exportar-csv").href = `/exportar?formato=csv${filtroMes().replace("?", "&")}`;
@@ -690,6 +759,7 @@ function iniciar() {
   $("#form-recorrente").addEventListener("submit", criarRecorrente);
   $("#arquivo-csv").addEventListener("change", lerArquivo);
   $("#botao-importar").addEventListener("click", importarRevisados);
+  $("#form-meu-nome").addEventListener("submit", adicionarMeuNome);
   $("#botao-cancelar-importacao").addEventListener("click", esconderPrevia);
   recarregar().catch((erro) => mostrarMensagem(erro.message, true));
   iniciarConta();

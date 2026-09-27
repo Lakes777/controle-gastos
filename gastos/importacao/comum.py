@@ -1,7 +1,9 @@
 """O que todos os leitores de extrato usam: o resultado, os erros, os valores e as categorias."""
 
 import re
+import unicodedata
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -54,6 +56,12 @@ PADRAO_PIX = re.compile(
     r"^Transferência (enviada|recebida) pelo Pix - (.+?)"
     r"(?: - •••.*| \(Transferência (?:enviada|recebida)\))?$"
 )
+
+
+# Pix para uma conta sua (do Inter para o Nubank, por exemplo) só troca o dinheiro de lugar.
+# O usuário cadastra o próprio nome, e o que for enviado para ele não conta como gasto.
+MOTIVO_PARA_VOCE = "transferência para uma conta sua"
+MAXIMO_DE_NOMES = 10
 
 
 class FormatoDesconhecido(Exception):
@@ -141,3 +149,36 @@ def separar_conta(linhas: list[tuple[date, Decimal, str, str]], extrato: Extrato
             continue
         gasto = Gasto(-valor, adivinhar_categoria(descricao), descricao, data)
         extrato.itens.append((gasto, origem))
+
+
+def sem_acentos(texto: str) -> str:
+    """'André  LAGOS' -> 'andre lagos': os bancos escrevem o mesmo nome de jeitos diferentes."""
+    decomposto = unicodedata.normalize("NFKD", texto)  # "é" vira "e" + acento separado
+    sem = "".join(letra for letra in decomposto if not unicodedata.combining(letra))
+    return " ".join(sem.lower().split())
+
+
+def validar_meu_nome(nome: str) -> str:
+    """Espaços arrumados; pede nome e sobrenome, porque só "Ana" acharia "Ana Paula" também."""
+    nome = " ".join(nome.split())
+    if len(nome.split()) < 2:
+        raise ValueError("informe nome e sobrenome, como aparecem no extrato")
+    if len(nome) > 100:
+        raise ValueError("nome longo demais (o máximo é 100 caracteres)")
+    return nome
+
+
+def tirar_transferencias_para_voce(extrato: Extrato, meus_nomes: Sequence[str]) -> None:
+    """Passa para os ignorados os gastos cuja descrição tem um dos nomes do usuário."""
+    padroes = [
+        re.compile(rf"\b{re.escape(sem_acentos(nome))}\b") for nome in meus_nomes if nome.strip()
+    ]
+    if not padroes:
+        return
+    gastos = []
+    for gasto, origem in extrato.itens:
+        if any(padrao.search(sem_acentos(gasto.descricao)) for padrao in padroes):
+            extrato.ignorados.append(Ignorado(gasto.data, gasto.descricao, gasto.valor, MOTIVO_PARA_VOCE))
+        else:
+            gastos.append((gasto, origem))
+    extrato.itens = gastos

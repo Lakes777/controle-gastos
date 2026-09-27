@@ -387,6 +387,54 @@ body {
   max-width: 160px;
 }
 
+/* Linha desmarcada na prévia: fica apagada e não é importada */
+.tabela__marcar input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.tabela--previa tr.pulada td:not(.tabela__marcar) {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.meus-nomes {
+  margin-top: 12px;
+  font-size: 0.9rem;
+}
+
+.meus-nomes summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.meus-nomes__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.meus-nomes__lista li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.meus-nomes__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .previa__ignorados {
   margin-top: 12px;
   font-size: 0.85rem;
@@ -768,4 +816,5 @@ body {
   .tabela__acoes { grid-column: 2; grid-row: 2 / 4; align-self: end; }
   .tabela--previa .tabela__categoria { grid-row: 3; }
   .tabela--previa .campo { max-width: none; }
+  .tabela--previa .tabela__marcar { grid-column: 2; grid-row: 2 / 4; align-self: end; justify-self: end; }
 }

@@ -42,6 +42,9 @@ BANCOS = {
 TRANSACAO = re.compile(r"<STMTTRN>(.*?)</STMTTRN>", re.S | re.I)
 # A fatura do cartão vem num bloco próprio (CREDITCARDMSGSRSV1 / CCSTMTRS).
 FATURA = re.compile(r"<(CREDITCARDMSGSRSV1|CCSTMTRS)>", re.I)
+# O Inter escreve 'Pix enviado: "Cp :18236120-Nome"' (o número é o código do banco da
+# outra ponta); vira "Pix enviado - Nome", igual ao Nubank.
+PIX_INTER = re.compile(r'^Pix (enviado|recebido): *"?Cp *: *\d*-(.+?)"?$', re.I)
 
 
 def parece_ofx(conteudo: bytes) -> bool:
@@ -76,6 +79,9 @@ def _data(texto: str | None) -> date:
 
 def _descricao(bloco: str) -> str:
     nome, memo = _campo(bloco, "NAME") or "", _campo(bloco, "MEMO") or ""
+    if pix := PIX_INTER.match(memo):
+        # O NAME tem o nome com acentos ("André"); o MEMO, às vezes sem.
+        return f"Pix {pix.group(1).lower()} - {nome or pix.group(2)}"
     if nome and memo and nome.lower() not in memo.lower() and memo.lower() not in nome.lower():
         return f"{nome} - {memo}"
     return limpar_descricao(max(nome, memo, key=len))

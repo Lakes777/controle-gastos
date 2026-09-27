@@ -10,7 +10,13 @@ from gastos.armazenamento import Banco
 from gastos.exportacao import escrever_csv, escrever_xlsx
 from gastos.formatacao import formatar_reais, nome_do_mes
 from gastos.grafico import desenhar, somar_por_categoria, somar_por_mes
-from gastos.importacao import FormatoDesconhecido, LinhaInvalida, ler_extrato
+from gastos.importacao import (
+    MAXIMO_DE_NOMES,
+    FormatoDesconhecido,
+    LinhaInvalida,
+    ler_extrato,
+    validar_meu_nome,
+)
 from gastos.modelo import Gasto
 from gastos.orcamento import calcular
 from gastos.orcamento import desenhar as desenhar_orcamento
@@ -42,6 +48,24 @@ def mes_valido(texto: str) -> str:
     except ValueError:
         raise argparse.ArgumentTypeError(f"mês inválido: {texto} (use AAAA-MM, ex.: 2026-09)")
     return f"{data.year:04d}-{data.month:02d}"
+
+
+def numeros(texto: str) -> set[int]:
+    """'1,3' -> {1, 3}: as linhas da prévia que o usuário quer deixar de fora."""
+    try:
+        escolhidos = {int(parte) for parte in texto.split(",") if parte.strip()}
+    except ValueError:
+        raise argparse.ArgumentTypeError("use os números da lista separados por vírgula, ex.: 1,3")
+    if not escolhidos:
+        raise argparse.ArgumentTypeError("informe ao menos um número")
+    return escolhidos
+
+
+def nome_valido(texto: str) -> str:
+    try:
+        return validar_meu_nome(texto)
+    except ValueError as erro:
+        raise argparse.ArgumentTypeError(str(erro))
 
 
 def avisar_orcamento(banco: Banco, gasto: Gasto) -> None:
@@ -151,45 +175,87 @@ def cmd_exportar(args: argparse.Namespace) -> None:
 
 def cmd_importar(args: argparse.Namespace) -> None:
     try:
-        # Lido em bytes: quem descobre o formato (CSV ou OFX) e a codificação é ler_extrato.
         with open(args.arquivo, "rb") as arquivo:
-            extrato = ler_extrato(arquivo.read())
+            conteudo = arquivo.read()
     except FileNotFoundError:
         sys.exit(f"Arquivo não encontrado: {args.arquivo}")
+
+    banco = Banco()
+    meus_nomes = banco.listar_meus_nomes()
+    try:
+        # Em bytes: quem descobre o formato (CSV ou OFX) e a codificação é ler_extrato.
+        extrato = ler_extrato(conteudo, meus_nomes)
     except UnicodeDecodeError:
         sys.exit("O CSV não está em UTF-8. Exporte o CSV de novo pelo Nubank.")
     except (FormatoDesconhecido, LinhaInvalida) as erro:
         sys.exit(f"Nada foi importado. {erro}")
 
-    banco = Banco()
     ja_importadas = banco.origens_existentes()
     novos = [(gasto, origem) for gasto, origem in extrato.itens if origem not in ja_importadas]
     repetidos = len(extrato.itens) - len(novos)
+    pular = args.pular or set()
+    if fora := sorted(n for n in pular if not 1 <= n <= len(novos)):
+        sys.exit(f"Nada foi importado. --pular: a lista de novos não tem o número {fora[0]}.")
 
     print(f"Arquivo reconhecido: {extrato.nome}")
     print()
-    for gasto, _ in novos:
+    for numero, (gasto, _) in enumerate(novos, start=1):
+        pulado = numero in pular
         print(
-            f"  + {gasto.data:%d/%m/%Y}  {formatar_reais(gasto.valor):>12}  "
-            f"{gasto.categoria:<12}  {gasto.descricao}"
+            f"  {'x' if pulado else '+'}{numero:>3}  {gasto.data:%d/%m/%Y}  "
+            f"{formatar_reais(gasto.valor):>12}  {gasto.categoria:<12}  {gasto.descricao}"
+            + (" (pulado)" if pulado else "")
         )
     for ignorado in extrato.ignorados:
         print(
-            f"  - {ignorado.data:%d/%m/%Y}  {formatar_reais(abs(ignorado.valor)):>12}  "
+            f"  -     {ignorado.data:%d/%m/%Y}  {formatar_reais(abs(ignorado.valor)):>12}  "
             f"{ignorado.descricao} (ignorado: {ignorado.motivo})"
         )
     print()
 
+    novos = [item for numero, item in enumerate(novos, start=1) if numero not in pular]
     contagem = (
-        f"{repetidos} já importado(s) antes, {len(extrato.ignorados)} ignorado(s)"
+        (f"{len(pular)} pulado(s), " if pular else "")
+        + f"{repetidos} já importado(s) antes, {len(extrato.ignorados)} ignorado(s)"
     )
     if args.simular:
         print(f"Simulação: {len(novos)} gasto(s) seriam importados, {contagem}. Nada foi salvo.")
+        if novos:
+            print("Para deixar linhas de fora: --pular com os números da lista (ex.: --pular 1,3)")
+        if not meus_nomes and any(g.descricao.startswith("Pix enviado") for g, _ in novos):
+            print(
+                "Algum Pix foi para outra conta sua? Cadastre seu nome e ele deixa de contar "
+                'como gasto: python -m gastos meu-nome adicionar "Nome Sobrenome"'
+            )
         return
     importados = banco.importar(novos)
     print(f"{len(importados)} gasto(s) importado(s), {contagem}")
     if importados:
         print("Para corrigir uma categoria: python -m gastos editar <nº> --categoria <nova>")
+
+
+def cmd_meu_nome(args: argparse.Namespace) -> None:
+    banco = Banco()
+    if args.acao == "adicionar":
+        if len(banco.listar_meus_nomes()) >= MAXIMO_DE_NOMES:
+            sys.exit(f"Já há {MAXIMO_DE_NOMES} nomes cadastrados (o máximo).")
+        if not banco.adicionar_meu_nome(args.nome):
+            sys.exit(f"O nome {args.nome} já estava cadastrado.")
+        print(f"Nome cadastrado: {args.nome}. Pix enviado para ele não conta como gasto ao importar.")
+        return
+    if args.acao == "remover":
+        if not banco.remover_meu_nome(args.nome):
+            sys.exit(f"O nome {args.nome} não estava cadastrado.")
+        print(f"Nome removido: {args.nome}")
+        return
+
+    nomes = banco.listar_meus_nomes()
+    if not nomes:
+        print('Nenhum nome cadastrado. Cadastre com: meu-nome adicionar "Nome Sobrenome"')
+        return
+    print("Pix enviado para estes nomes não conta como gasto ao importar:")
+    for nome in nomes:
+        print(f"  {nome}")
 
 
 def cmd_remover(args: argparse.Namespace) -> None:
@@ -350,7 +416,21 @@ def main() -> None:
     p_importar.add_argument(
         "--simular", action="store_true", help="mostra o que seria importado, sem salvar"
     )
+    p_importar.add_argument(
+        "--pular", type=numeros, metavar="1,3", help="deixa de fora essas linhas da lista de novos"
+    )
     p_importar.set_defaults(funcao=cmd_importar)
+
+    p_meu_nome = subparsers.add_parser(
+        "meu-nome",
+        help="seu nome como aparece nos extratos: Pix para você mesmo não é gasto (sem ação: lista)",
+    )
+    p_meu_nome.set_defaults(funcao=cmd_meu_nome, acao=None)
+    acoes_nome = p_meu_nome.add_subparsers(dest="acao")
+    p_nome_adicionar = acoes_nome.add_parser("adicionar", help="cadastra um nome")
+    p_nome_adicionar.add_argument("nome", type=nome_valido, help='ex.: "Ana Souza Lima"')
+    p_nome_remover = acoes_nome.add_parser("remover", help="apaga um nome")
+    p_nome_remover.add_argument("nome")
 
     p_remover = subparsers.add_parser("remover", help="apaga um gasto pelo número")
     p_remover.add_argument("id", type=int, help="o número mostrado em 'listar'")

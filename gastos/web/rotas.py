@@ -25,7 +25,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from gastos.armazenamento import Banco
 from gastos.exportacao import escrever_csv, escrever_xlsx
 from gastos.grafico import somar_por_categoria
-from gastos.importacao import FormatoDesconhecido, LinhaInvalida, ler_extrato
+from gastos.importacao import (
+    MAXIMO_DE_NOMES,
+    FormatoDesconhecido,
+    LinhaInvalida,
+    ler_extrato,
+    validar_meu_nome,
+)
 from gastos.modelo import Gasto
 from gastos.orcamento import Situacao, calcular
 from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
@@ -45,6 +51,7 @@ from gastos.web.modelos import (
     ConfirmacaoSenha,
     InfoSessao,
     Login,
+    MeuNome,
     IgnoradoNaImportacao,
     ItemImportado,
     PedidoImportacao,
@@ -446,7 +453,7 @@ def previa(
 ) -> PreviaImportacao:
     """Mostra o que seria importado, sem salvar nada."""
     try:
-        extrato = ler_extrato(conteudo)
+        extrato = ler_extrato(conteudo, banco.listar_meus_nomes())
     except UnicodeDecodeError:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -493,6 +500,42 @@ def importar(
     ]
     importados = banco.importar(itens)
     return ResultadoImportacao(importados=len(importados), repetidos=len(itens) - len(importados))
+
+
+@roteador_importacao.get("/meus-nomes")
+def listar_meus_nomes(banco: QualquerBanco = Depends(pegar_banco)) -> list[str]:
+    """Nomes do usuário: Pix enviado para eles (outra conta sua) não conta como gasto."""
+    return banco.listar_meus_nomes()
+
+
+@roteador_importacao.post(
+    "/meus-nomes",
+    status_code=status.HTTP_201_CREATED,
+    responses={409: {"description": "O nome já estava cadastrado"}},
+)
+def adicionar_meu_nome(pedido: MeuNome, banco: QualquerBanco = Depends(pegar_banco)) -> list[str]:
+    try:
+        nome = validar_meu_nome(pedido.nome)
+    except ValueError as erro:
+        texto = str(erro)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, texto[0].upper() + texto[1:])
+    if len(banco.listar_meus_nomes()) >= MAXIMO_DE_NOMES:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, f"Já há {MAXIMO_DE_NOMES} nomes cadastrados (o máximo)"
+        )
+    if not banco.adicionar_meu_nome(nome):
+        raise HTTPException(status.HTTP_409_CONFLICT, f"O nome {nome} já estava cadastrado")
+    return banco.listar_meus_nomes()
+
+
+@roteador_importacao.delete(
+    "/meus-nomes/{nome}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: {"description": "O nome não estava cadastrado"}},
+)
+def remover_meu_nome(nome: str, banco: QualquerBanco = Depends(pegar_banco)) -> None:
+    if not banco.remover_meu_nome(nome):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"O nome {nome} não estava cadastrado")
 
 
 # (dias atrás, descrição, valor) da fatura de exemplo; valores negativos são pagamento e estorno.
