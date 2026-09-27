@@ -169,7 +169,7 @@ Orçamento de mercado em set/2026: R$ 420,00 de R$ 500,00 (84%) - ATENÇÃO: sob
 
 ## Versão web
 
-![Versão web do controle de gastos: resumo do mês, formulário, lista de gastos, gráfico por categoria, orçamento e recorrentes](docs/web.png)
+![Versão web do controle de gastos: resumo do mês, formulário, lista de gastos, gráfico por categoria, importação de extratos, orçamento e recorrentes](docs/web.png)
 
 > Print com dados de exemplo.
 
