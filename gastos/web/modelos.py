@@ -151,7 +151,7 @@ class IgnoradoNaImportacao(BaseModel):
 
 
 class PreviaImportacao(BaseModel):
-    formato: str = Field(description="fatura do cartão ou extrato da conta")
+    formato: str = Field(description="Ex.: extrato da conta do Inter (OFX)")
     novos: list[ItemImportado] = Field(description="Ainda não importados; a categoria é um palpite")
     repetidos: int = Field(description="Já importados antes (ficam de fora)")
     ignorados: list[IgnoradoNaImportacao] = Field(description="Não são gastos, com o motivo")

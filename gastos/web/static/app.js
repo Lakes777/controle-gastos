@@ -431,7 +431,7 @@ async function removerRecorrente(r) {
   }
 }
 
-// ---------- Importação do Nubank ----------
+// ---------- Importação (CSV do Nubank ou OFX) ----------
 
 const importacao = { novos: [], camposCategoria: [] };
 
@@ -443,10 +443,10 @@ async function lerArquivo(evento) {
     return mostrarMensagem("Arquivo grande demais (o máximo é 2 MB).", true);
   }
   try {
-    // O arquivo vai como veio (bytes): quem confere a codificação (UTF-8) é a API.
+    // O arquivo vai como veio (bytes): quem descobre o formato e a codificação é a API.
     const previa = await api("/importar/previa", {
       method: "POST",
-      headers: { "Content-Type": "text/csv" },
+      headers: { "Content-Type": "application/octet-stream" },
       body: arquivo,
     });
     mostrarPrevia(previa, arquivo.name);
@@ -478,7 +478,7 @@ function mostrarPrevia(previa, nomeDoArquivo) {
   ];
   $("#previa-resumo").replaceChildren(
     el("strong", { text: previa.formato[0].toUpperCase() + previa.formato.slice(1) }),
-    ` (${nomeDoArquivo}): ${partes.join(" · ")}.`,
+    `, arquivo ${nomeDoArquivo}: ${partes.join(" · ")}.`,
     previa.novos.length ? " Confira as categorias antes de importar." : " Nada novo para importar.",
   );
 

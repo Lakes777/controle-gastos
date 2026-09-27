@@ -10,7 +10,7 @@ from gastos.armazenamento import Banco
 from gastos.exportacao import escrever_csv, escrever_xlsx
 from gastos.formatacao import formatar_reais, nome_do_mes
 from gastos.grafico import desenhar, somar_por_categoria, somar_por_mes
-from gastos.importacao import FormatoDesconhecido, LinhaInvalida, ler_nubank
+from gastos.importacao import FormatoDesconhecido, LinhaInvalida, ler_extrato
 from gastos.modelo import Gasto
 from gastos.orcamento import calcular
 from gastos.orcamento import desenhar as desenhar_orcamento
@@ -151,13 +151,13 @@ def cmd_exportar(args: argparse.Namespace) -> None:
 
 def cmd_importar(args: argparse.Namespace) -> None:
     try:
-        # utf-8-sig: aceita o arquivo com ou sem a marca BOM no começo.
-        with open(args.arquivo, encoding="utf-8-sig", newline="") as arquivo:
-            extrato = ler_nubank(arquivo)
+        # Lido em bytes: quem descobre o formato (CSV ou OFX) e a codificação é ler_extrato.
+        with open(args.arquivo, "rb") as arquivo:
+            extrato = ler_extrato(arquivo.read())
     except FileNotFoundError:
         sys.exit(f"Arquivo não encontrado: {args.arquivo}")
     except UnicodeDecodeError:
-        sys.exit("O arquivo não está em UTF-8. Exporte o CSV de novo pelo Nubank.")
+        sys.exit("O CSV não está em UTF-8. Exporte o CSV de novo pelo Nubank.")
     except (FormatoDesconhecido, LinhaInvalida) as erro:
         sys.exit(f"Nada foi importado. {erro}")
 
@@ -166,7 +166,7 @@ def cmd_importar(args: argparse.Namespace) -> None:
     novos = [(gasto, origem) for gasto, origem in extrato.itens if origem not in ja_importadas]
     repetidos = len(extrato.itens) - len(novos)
 
-    print(f"Arquivo reconhecido: {extrato.formato} do Nubank")
+    print(f"Arquivo reconhecido: {extrato.nome}")
     print()
     for gasto, _ in novos:
         print(
@@ -344,9 +344,9 @@ def main() -> None:
     p_exportar.set_defaults(funcao=cmd_exportar)
 
     p_importar = subparsers.add_parser(
-        "importar", help="importa o CSV da fatura ou do extrato da conta do Nubank"
+        "importar", help="importa o CSV do Nubank ou o OFX de qualquer banco (fatura ou conta)"
     )
-    p_importar.add_argument("arquivo", help="o arquivo .csv baixado do Nubank")
+    p_importar.add_argument("arquivo", help="o arquivo .csv (Nubank) ou .ofx baixado do banco")
     p_importar.add_argument(
         "--simular", action="store_true", help="mostra o que seria importado, sem salvar"
     )

@@ -7,6 +7,7 @@ from decimal import Decimal
 import pytest
 
 from gastos.__main__ import dia_do_mes, formatar_reais, main, mes_valido, valor_positivo
+from tests.test_ofx import CONTA_INTER
 
 
 @pytest.mark.parametrize(
@@ -490,7 +491,7 @@ def test_importar_simular_nao_salva_nada(tmp_path, monkeypatch, capsys):
 
     rodar(monkeypatch, "importar", "fatura.csv", "--simular")
     saida = capsys.readouterr().out
-    assert "Arquivo reconhecido: fatura do cartão do Nubank" in saida
+    assert "Arquivo reconhecido: fatura do cartão do Nubank (CSV)" in saida
     assert "+ 05/09/2026      R$ 23,59  transporte    Uber *Trip" in saida
     assert "Pagamento recebido (ignorado: pagamento ou estorno)" in saida
     assert "2 gasto(s) seriam importados" in saida and "Nada foi salvo" in saida
@@ -520,7 +521,7 @@ def test_importar_duas_vezes_nao_duplica(tmp_path, monkeypatch, capsys):
 @pytest.mark.parametrize(
     "conteudo, mensagem",
     [
-        ("numero;data;valor\n1;23/09/2026;30,00\n", "Não parece um CSV do Nubank"),
+        ("numero;data;valor\n1;23/09/2026;30,00\n", "não é um OFX nem um CSV do Nubank"),
         ("date,title,amount\n2026-09-05,Uber,23.59\n2026-99-99,Erro,1\n", "linha 3"),
     ],
 )
@@ -555,3 +556,16 @@ def test_importar_arquivo_que_nao_e_utf8(tmp_path, monkeypatch):
         rodar(monkeypatch, "importar", "antigo.csv")
 
     assert "não está em UTF-8" in str(erro.value)
+
+
+def test_importar_ofx_pela_linha_de_comando(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "extrato.ofx").write_bytes(CONTA_INTER.encode("cp1252"))
+
+    rodar(monkeypatch, "importar", "extrato.ofx")
+    saida = capsys.readouterr().out
+    assert "Arquivo reconhecido: extrato da conta do Inter (OFX)" in saida
+    assert "2 gasto(s) importado(s), 0 já importado(s) antes, 3 ignorado(s)" in saida
+
+    rodar(monkeypatch, "importar", "extrato.ofx")
+    assert "0 gasto(s) importado(s), 2 já importado(s) antes" in capsys.readouterr().out

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from gastos.web.app import criar_app
 from gastos.web.rotas import hoje
+from tests.test_ofx import FATURA_ITAU
 
 HOJE = date(2026, 9, 26)
 
@@ -329,7 +330,7 @@ def test_previa_da_fatura_nao_salva_nada(cliente):
 
     assert resposta.status_code == 200
     dados = resposta.json()
-    assert dados["formato"] == "fatura do cartão"
+    assert dados["formato"] == "fatura do cartão do Nubank (CSV)"
     assert [(n["data"], n["valor"], n["categoria"]) for n in dados["novos"]] == [
         ("2026-09-05", "23.59", "transporte"),
         ("2026-09-05", "23.59", "transporte"),  # duas corridas iguais no mesmo dia são duas
@@ -342,7 +343,7 @@ def test_previa_da_fatura_nao_salva_nada(cliente):
 
 def test_previa_do_extrato_da_conta(cliente):
     dados = previa(cliente, EXTRATO_CONTA).json()
-    assert dados["formato"] == "extrato da conta"
+    assert dados["formato"] == "extrato da conta do Nubank (CSV)"
     assert [n["descricao"] for n in dados["novos"]] == ["Compra no débito - SUPERMERCADO CONDOR"]
     assert len(dados["ignorados"]) == 2
 
@@ -372,7 +373,7 @@ def test_importar_valida_os_itens(cliente):
 @pytest.mark.parametrize(
     "conteudo, trecho",
     [
-        (b"nome,idade\nana,30\n", "Não parece um CSV do Nubank"),
+        (b"nome,idade\nana,30\n", "não é um OFX nem um CSV do Nubank"),
         ("date,title,amount\n2026-09-01,Uber,abc\n".encode(), "linha 2"),
         ("date,title,amount\n2026-09-01,Café,5\n".encode("latin-1"), "UTF-8"),
     ],
@@ -384,7 +385,7 @@ def test_previa_recusa_arquivo_invalido(cliente, conteudo, trecho):
 
 
 def test_previa_recusa_arquivo_grande(cliente, monkeypatch):
-    monkeypatch.setattr("gastos.web.rotas.TAMANHO_MAXIMO_CSV", 10)
+    monkeypatch.setattr("gastos.web.rotas.TAMANHO_MAXIMO_ARQUIVO", 10)
     assert previa(cliente, FATURA).status_code == 413
 
 
@@ -402,3 +403,22 @@ def test_csv_de_exemplo_importa_certinho(cliente):
     assert len(dados["novos"]) == 8 and len(dados["ignorados"]) == 2
     assert max(n["data"] for n in dados["novos"]) == "2026-09-25"  # datas relativas a hoje
     assert {n["categoria"] for n in dados["novos"]} >= {"mercado", "transporte", "assinaturas"}
+
+
+def test_importar_ofx_pela_pagina(cliente):
+    def previa():
+        return cliente.post(
+            "/importar/previa",
+            content=FATURA_ITAU.encode(),
+            headers={"Content-Type": "application/octet-stream"},
+        ).json()
+
+    dados = previa()
+    assert dados["formato"] == "fatura do cartão do Itaú (OFX)"
+    assert [(n["valor"], n["categoria"]) for n in dados["novos"]] == [
+        ("23.59", "transporte"),
+        ("55.90", "assinaturas"),
+    ]
+    resultado = cliente.post("/importar", json={"itens": dados["novos"]}).json()
+    assert resultado == {"importados": 2, "repetidos": 0}
+    assert (previa()["novos"], previa()["repetidos"]) == ([], 2)

@@ -5,7 +5,7 @@
 /orcamentos: limite mensal por categoria e a situação do mês.
 /recorrentes: gastos lançados sozinhos todo mês.
 /exportar: baixa os gastos em planilha do Excel (.xlsx) ou CSV.
-/importar: lê o CSV do Nubank, mostra a prévia e salva os gastos revisados.
+/importar: lê o CSV do Nubank ou o OFX de qualquer banco, mostra a prévia e salva os gastos revisados.
 /conta: cadastro (com convite), entrar, sair e excluir a conta (só na versão online).
 """
 
@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from gastos.armazenamento import Banco
 from gastos.exportacao import escrever_csv, escrever_xlsx
 from gastos.grafico import somar_por_categoria
-from gastos.importacao import FormatoDesconhecido, LinhaInvalida, ler_nubank
+from gastos.importacao import FormatoDesconhecido, LinhaInvalida, ler_extrato
 from gastos.modelo import Gasto
 from gastos.orcamento import Situacao, calcular
 from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
@@ -408,51 +408,50 @@ def remover_recorrente(recorrente_id: int, banco: QualquerBanco = Depends(pegar_
 
 # ---------- Importação do Nubank ----------
 
-TAMANHO_MAXIMO_CSV = 2_000_000  # 2 MB: um extrato de anos ainda cabe com folga
+TAMANHO_MAXIMO_ARQUIVO = 2_000_000  # 2 MB: um extrato de anos ainda cabe com folga
 
-CORPO_CSV = {
+CORPO_ARQUIVO = {
     "requestBody": {
         "required": True,
-        "content": {"text/csv": {"schema": {"type": "string"}}},
-        "description": "O conteúdo do CSV baixado do Nubank (fatura do cartão ou extrato da conta)",
+        "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
+        "description": "O arquivo baixado do banco: CSV do Nubank ou OFX (fatura do cartão ou conta)",
     }
 }
 
 
-async def ler_csv(request: Request) -> str:
-    """Lê o CSV enviado no corpo do pedido, como texto.
+async def ler_arquivo(request: Request) -> bytes:
+    """Lê o arquivo enviado no corpo do pedido, como veio (bytes).
 
-    O arquivo vai como texto puro (a página lê o arquivo no navegador), então não
-    é preciso formulário com upload (multipart) nem biblioteca a mais.
+    A página manda o arquivo direto no corpo, então não é preciso formulário com
+    upload (multipart) nem biblioteca a mais.
     """
     corpo = await request.body()
-    if len(corpo) > TAMANHO_MAXIMO_CSV:
+    if len(corpo) > TAMANHO_MAXIMO_ARQUIVO:
         raise HTTPException(
             status.HTTP_413_CONTENT_TOO_LARGE, "Arquivo grande demais (o máximo é 2 MB)"
         )
-    try:
-        return corpo.decode("utf-8-sig")  # aceita com ou sem a marca BOM no começo
-    except UnicodeDecodeError:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "O arquivo não está em UTF-8. Baixe o CSV de novo pelo Nubank.",
-        )
+    return corpo
 
 
 @roteador_importacao.post(
     "/previa",
-    openapi_extra=CORPO_CSV,
+    openapi_extra=CORPO_ARQUIVO,
     responses={
         413: {"description": "Arquivo grande demais"},
-        422: {"description": "Não é um CSV do Nubank"},
+        422: {"description": "Não é um CSV do Nubank nem um OFX"},
     },
 )
 def previa(
-    texto: str = Depends(ler_csv), banco: QualquerBanco = Depends(pegar_banco)
+    conteudo: bytes = Depends(ler_arquivo), banco: QualquerBanco = Depends(pegar_banco)
 ) -> PreviaImportacao:
     """Mostra o que seria importado, sem salvar nada."""
     try:
-        extrato = ler_nubank(io.StringIO(texto, newline=""))
+        extrato = ler_extrato(conteudo)
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "O CSV não está em UTF-8. Baixe o CSV de novo pelo Nubank.",
+        )
     except (FormatoDesconhecido, LinhaInvalida) as erro:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Nada foi importado. {erro}")
 
@@ -469,7 +468,7 @@ def previa(
         if origem not in ja_importadas
     ]
     return PreviaImportacao(
-        formato=extrato.formato,
+        formato=extrato.nome,
         novos=novos,
         repetidos=len(extrato.itens) - len(novos),
         ignorados=[
