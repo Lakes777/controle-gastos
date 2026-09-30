@@ -472,12 +472,15 @@ function mostrarPrevia(previa, nomeDoArquivo) {
   importacao.camposCategoria = previa.novos.map((item) => {
     const campo = el("input", {
       class: "campo campo--pequeno", list: "lista-categorias", maxlength: "40",
-      "aria-label": `Categoria de ${item.descricao || "gasto"}`,
+      "aria-label": `Categoria de ${item.descricao || "gasto"}` +
+        (item.lembrada ? " (a mesma que você já usou para esta loja)" : ""),
     });
     campo.value = item.categoria;
+    if (item.lembrada) campo.title = "Categoria que você já usou para esta loja";
     return campo;
   });
 
+  const lembradas = previa.novos.filter((item) => item.lembrada).length;
   const partes = [
     plural(previa.novos.length, "gasto novo", "gastos novos"),
     plural(previa.repetidos, "já importado antes", "já importados antes"),
@@ -487,6 +490,10 @@ function mostrarPrevia(previa, nomeDoArquivo) {
     el("strong", { text: previa.formato[0].toUpperCase() + previa.formato.slice(1) }),
     `, arquivo ${nomeDoArquivo}: ${partes.join(" · ")}.`,
     previa.novos.length ? " Confira as categorias antes de importar." : " Nada novo para importar.",
+    lembradas
+      ? ` ${lembradas === 1 ? "Uma categoria veio" : `${lembradas} categorias vieram`} de gastos` +
+        " seus da mesma loja (marcadas com •)."
+      : "",
   );
 
   $("#previa-tabela").hidden = previa.novos.length === 0;
@@ -508,7 +515,10 @@ function mostrarPrevia(previa, nomeDoArquivo) {
         el("td", { class: "tabela__marcar" }, importacao.marcados[i]),
         el("td", { class: "tabela__data", text: formatarData(item.data) }),
         el("td", { class: "tabela__descricao", text: item.descricao || "—" }),
-        el("td", { class: "tabela__categoria" }, importacao.camposCategoria[i]),
+        el("td", { class: "tabela__categoria" },
+          importacao.camposCategoria[i],
+          item.lembrada ? el("span", { class: "lembrada", text: " •", "aria-hidden": "true" }) : "",
+        ),
         el("td", { class: "tabela__valor", text: formatarReais(item.valor) }),
       ),
     ),

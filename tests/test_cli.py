@@ -651,3 +651,21 @@ def test_pular_numero_que_nao_existe_nao_importa_nada(tmp_path, monkeypatch, cap
 def test_pular_recusa_texto():
     with pytest.raises(argparse.ArgumentTypeError):
         numeros("1,dois")
+
+
+def test_importar_lembra_a_categoria_corrigida(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "julho.csv").write_text("date,title,amount\n2026-07-04,Paradojabar,40.00\n", encoding="utf-8")
+    (tmp_path / "agosto.csv").write_text(
+        "date,title,amount\n2026-08-01,PARADOJABAR,25.00\n2026-08-02,Casa Vecchia,60.00\n",
+        encoding="utf-8",
+    )
+    rodar(monkeypatch, "importar", "julho.csv")
+    assert "outros" in capsys.readouterr().out
+    rodar(monkeypatch, "editar", "1", "--categoria", "lazer")
+    capsys.readouterr()
+
+    rodar(monkeypatch, "importar", "agosto.csv")
+    saida = capsys.readouterr().out
+    assert "lazer         PARADOJABAR (categoria lembrada)" in saida
+    assert "outros        Casa Vecchia\n" in saida

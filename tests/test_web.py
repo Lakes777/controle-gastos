@@ -358,9 +358,19 @@ def test_importar_com_categoria_corrigida_e_sem_repetir(cliente):
     # O mesmo arquivo de novo: a prévia já mostra que tudo foi importado.
     dados = previa(cliente, FATURA).json()
     assert (dados["novos"], dados["repetidos"]) == ([], 3)
+
     # E mesmo que a página mande de novo, nada se repete.
     assert cliente.post("/importar", json={"itens": novos}).json() == {"importados": 0, "repetidos": 3}
     assert len(cliente.get("/gastos").json()) == 3
+
+    # Um mês depois, a Netflix já vem com a categoria que o usuário escolheu; a loja nova, não.
+    outubro = "date,title,amount\n2026-10-07,Netflix.com,55.90\n2026-10-08,Loja Nova,9.00\n"
+    novos = previa(cliente, outubro).json()["novos"]
+    assert [(n["categoria"], n["lembrada"]) for n in novos] == [("lazer", True), ("outros", False)]
+
+    # O "lembrada" volta no pedido (a página manda o item inteiro) e não muda o que é salvo.
+    assert cliente.post("/importar", json={"itens": novos}).json() == {"importados": 2, "repetidos": 0}
+    assert [g["categoria"] for g in cliente.get("/gastos").json()][-2:] == ["lazer", "outros"]
 
 
 def test_importar_valida_os_itens(cliente):

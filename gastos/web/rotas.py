@@ -29,6 +29,7 @@ from gastos.importacao import (
     MAXIMO_DE_NOMES,
     FormatoDesconhecido,
     LinhaInvalida,
+    categorias_lembradas,
     ler_extrato,
     validar_meu_nome,
 )
@@ -453,7 +454,9 @@ def previa(
 ) -> PreviaImportacao:
     """Mostra o que seria importado, sem salvar nada."""
     try:
-        extrato = ler_extrato(conteudo, banco.listar_meus_nomes())
+        extrato = ler_extrato(
+            conteudo, banco.listar_meus_nomes(), categorias_lembradas(banco.listar())
+        )
     except UnicodeDecodeError:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -470,6 +473,7 @@ def previa(
             categoria=gasto.categoria,
             descricao=gasto.descricao[:200],
             data=gasto.data,
+            lembrada=origem in extrato.lembradas,
         )
         for gasto, origem in extrato.itens
         if origem not in ja_importadas

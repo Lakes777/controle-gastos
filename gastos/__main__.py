@@ -14,6 +14,7 @@ from gastos.importacao import (
     MAXIMO_DE_NOMES,
     FormatoDesconhecido,
     LinhaInvalida,
+    categorias_lembradas,
     ler_extrato,
     validar_meu_nome,
 )
@@ -184,7 +185,7 @@ def cmd_importar(args: argparse.Namespace) -> None:
     meus_nomes = banco.listar_meus_nomes()
     try:
         # Em bytes: quem descobre o formato (CSV ou OFX) e a codificação é ler_extrato.
-        extrato = ler_extrato(conteudo, meus_nomes)
+        extrato = ler_extrato(conteudo, meus_nomes, categorias_lembradas(banco.listar()))
     except UnicodeDecodeError:
         sys.exit("O CSV não está em UTF-8. Exporte o CSV de novo pelo Nubank.")
     except (FormatoDesconhecido, LinhaInvalida) as erro:
@@ -199,11 +200,12 @@ def cmd_importar(args: argparse.Namespace) -> None:
 
     print(f"Arquivo reconhecido: {extrato.nome}")
     print()
-    for numero, (gasto, _) in enumerate(novos, start=1):
+    for numero, (gasto, origem) in enumerate(novos, start=1):
         pulado = numero in pular
         print(
             f"  {'x' if pulado else '+'}{numero:>3}  {gasto.data:%d/%m/%Y}  "
             f"{formatar_reais(gasto.valor):>12}  {gasto.categoria:<12}  {gasto.descricao}"
+            + (" (categoria lembrada)" if origem in extrato.lembradas else "")
             + (" (pulado)" if pulado else "")
         )
     for ignorado in extrato.ignorados:
@@ -231,7 +233,10 @@ def cmd_importar(args: argparse.Namespace) -> None:
     importados = banco.importar(novos)
     print(f"{len(importados)} gasto(s) importado(s), {contagem}")
     if importados:
-        print("Para corrigir uma categoria: python -m gastos editar <nº> --categoria <nova>")
+        print(
+            "Para corrigir uma categoria: python -m gastos editar <nº> --categoria <nova> "
+            "(as próximas compras da mesma loja já vêm com ela)"
+        )
 
 
 def cmd_meu_nome(args: argparse.Namespace) -> None:

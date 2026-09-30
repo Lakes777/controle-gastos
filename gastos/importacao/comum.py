@@ -3,7 +3,7 @@
 import re
 import unicodedata
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -87,6 +87,7 @@ class Extrato:
     arquivo: str  # "CSV" ou "OFX"
     itens: list[tuple[Gasto, str]] = field(default_factory=list)  # (gasto, origem)
     ignorados: list[Ignorado] = field(default_factory=list)
+    lembradas: set[str] = field(default_factory=set)  # origens com a categoria lembrada
 
     @property
     def nome(self) -> str:
@@ -182,3 +183,49 @@ def tirar_transferencias_para_voce(extrato: Extrato, meus_nomes: Sequence[str]) 
         else:
             gastos.append((gasto, origem))
     extrato.itens = gastos
+
+
+# Palavras que os bancos põem em qualquer lançamento. Uma descrição feita só delas
+# ("PIX TRANSF 29/09", "COMPRA CARTAO 1234") não diz a loja e não é lembrada: senão a
+# categoria de um Pix passaria para todos os outros.
+PALAVRAS_GENERICAS = {
+    "pix", "transf", "transferencia", "enviado", "enviada", "ted", "doc", "compra", "cartao",
+    "debito", "credito", "pag", "pagto", "pagamento", "boleto", "saque", "no", "de", "da", "do",
+}
+
+
+def chave_da_descricao(descricao: str) -> str:
+    """O que identifica a loja: 'Pag*Steam - Parcela 2/3' e 'PAG STEAM' viram 'pag steam'.
+
+    Tira acentos, números e pontuação (o Nubank põe o número da loja e da parcela no nome,
+    como em 'Raia140') e a palavra 'parcela'. Devolve "" se só sobrarem PALAVRAS_GENERICAS.
+    """
+    palavras = re.sub(r"[^a-z]+", " ", sem_acentos(descricao)).split()
+    palavras = [palavra for palavra in palavras if palavra != "parcela"]
+    if all(palavra in PALAVRAS_GENERICAS for palavra in palavras):
+        return ""
+    return " ".join(palavras)
+
+
+def categorias_lembradas(gastos: Iterable[Gasto]) -> dict[str, str]:
+    """A categoria do gasto mais recente de cada loja, pela chave_da_descricao.
+
+    Os gastos vêm em ordem cronológica (como o listar devolve), então vale o da data mais
+    nova, não a última correção feita. "outros" não conta: é o que sobra quando nenhuma
+    regra acertou, e apagaria uma escolha feita antes.
+    """
+    lembradas: dict[str, str] = {}
+    for gasto in gastos:
+        chave = chave_da_descricao(gasto.descricao)
+        if chave and gasto.categoria != SEM_CATEGORIA:
+            lembradas[chave] = gasto.categoria
+    return lembradas
+
+
+def lembrar_categorias(extrato: Extrato, lembradas: Mapping[str, str]) -> None:
+    """Troca o palpite pela categoria já usada na mesma loja (a escolha do usuário vale mais)."""
+    for gasto, origem in extrato.itens:
+        categoria = lembradas.get(chave_da_descricao(gasto.descricao))
+        if categoria:
+            gasto.categoria = categoria
+            extrato.lembradas.add(origem)

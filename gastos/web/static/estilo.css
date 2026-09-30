@@ -400,6 +400,12 @@ body {
   text-decoration: line-through;
 }
 
+/* Categoria que veio de um gasto da mesma loja. */
+.lembrada {
+  color: var(--accent);
+  margin-left: 4px;
+}
+
 .meus-nomes {
   margin-top: 12px;
   font-size: 0.9rem;

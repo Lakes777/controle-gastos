@@ -10,8 +10,12 @@ from gastos.importacao import (
     FormatoDesconhecido,
     LinhaInvalida,
     adivinhar_categoria,
+    categorias_lembradas,
+    ler_extrato,
     ler_nubank,
 )
+from gastos.importacao.comum import chave_da_descricao
+from gastos.modelo import Gasto
 
 FATURA = """date,title,amount
 2026-09-05,Uber *Trip,23.59
@@ -222,3 +226,59 @@ def test_descricao_do_pix_sem_cpf_banco_e_conta():
     assert "Pix recebido - MARIA DA SILVA" in descricoes
     for descricao in descricoes:
         assert "•••" not in descricao and "Agência" not in descricao and "Conta:" not in descricao
+
+
+# ---------- Categorias lembradas ----------
+
+
+@pytest.mark.parametrize(
+    "descricao, chave",
+    [
+        ("Paradojabar", "paradojabar"),
+        ("Pag*Steam - Parcela 2/3", "pag steam"),
+        ("PAG STEAM", "pag steam"),
+        ("Raia140", "raia"),
+        ("Café  Moinho", "cafe moinho"),
+        ("Pix no Crédito - Fulano - 2/8", "pix no credito fulano"),
+        ("", ""),
+        ("123 / 45", ""),
+        ("PIX TRANSF 29/09", ""),  # genérica: não diz a loja
+        ("COMPRA CARTAO 1234", ""),
+        ("Pix enviado - Gabriel Souza", "pix enviado gabriel souza"),
+    ],
+)
+def test_chave_da_descricao(descricao, chave):
+    assert chave_da_descricao(descricao) == chave
+
+
+def test_categorias_lembradas_usa_a_mais_recente_e_ignora_outros():
+    gastos = [
+        Gasto(Decimal("30"), "alimentação", "Paradojabar", date(2026, 7, 4)),
+        Gasto(Decimal("30"), "lazer", "PARADOJABAR", date(2026, 8, 1)),
+        Gasto(Decimal("30"), "outros", "Paradojabar", date(2026, 8, 2)),  # "outros" não apaga a escolha
+        Gasto(Decimal("10"), "outros", "Casa Vecchia", date(2026, 8, 3)),
+        Gasto(Decimal("5"), "lanche", "", date(2026, 8, 4)),  # sem descrição, não há loja
+    ]
+    assert categorias_lembradas(gastos) == {"paradojabar": "lazer"}
+
+
+def test_ler_extrato_troca_o_palpite_pela_categoria_lembrada():
+    fatura = """date,title,amount
+2026-09-05,Uber *Trip,23.59
+2026-09-06,Paradojabar,40.00
+2026-09-07,Loja Nova,10.00
+"""
+    lembradas = {"uber trip": "trabalho", "paradojabar": "lazer"}
+    extrato = ler_extrato(fatura.encode(), lembradas=lembradas)
+
+    assert [g.categoria for g, _ in extrato.itens] == ["trabalho", "lazer", "outros"]
+    assert extrato.lembradas == {origem for _, origem in extrato.itens[:2]}
+    assert ler_extrato(fatura.encode()).lembradas == set()
+
+
+def test_categoria_lembrada_vence_a_regra():
+    fatura = "date,title,amount\n2026-09-05,Mercado*Mercadolivre,80.00\n"
+    assert [g.categoria for g, _ in ler_extrato(fatura.encode()).itens] == ["compras"]
+    lembradas = categorias_lembradas([Gasto(Decimal("50"), "presentes", "MERCADO*MERCADOLIVRE")])
+    [(gasto, _)] = ler_extrato(fatura.encode(), lembradas=lembradas).itens
+    assert gasto.categoria == "presentes"

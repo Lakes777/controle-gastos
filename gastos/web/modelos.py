@@ -141,6 +141,9 @@ class ItemImportado(BaseModel):
     categoria: Categoria
     descricao: Descricao = ""
     data: date
+    lembrada: bool = Field(
+        default=False, description="Na prévia: a categoria é a que o usuário já deu a essa loja"
+    )
 
 
 class IgnoradoNaImportacao(BaseModel):

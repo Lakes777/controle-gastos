@@ -13,6 +13,7 @@ from decimal import Decimal
 import pytest
 
 from gastos.armazenamento import Banco
+from gastos.importacao import categorias_lembradas
 from gastos.modelo import Gasto
 from gastos.recorrentes import Recorrente
 from gastos.web.banco_postgres import BancoPostgres, criar_tabelas
@@ -145,6 +146,15 @@ def test_cada_conta_so_ve_e_mexe_no_que_e_dela(postgres):
     assert not b.atualizar(Gasto(Decimal("1"), "hack", "", date(2026, 9, 1), id=gasto_de_a.id))
     assert not b.remover(gasto_de_a.id)
     assert a.buscar(gasto_de_a.id) == gasto_de_a
+
+
+def test_categoria_lembrada_nao_passa_de_uma_conta_para_outra(postgres):
+    criar_conta(postgres, "b")
+    a, b = BancoPostgres(postgres, "a"), BancoPostgres(postgres, "b")
+    a.adicionar(Gasto(Decimal("40"), "lazer", "Paradojabar", date(2026, 7, 4)))
+    b.adicionar(Gasto(Decimal("40"), "alimentação", "Paradojabar", date(2026, 7, 5)))
+    assert categorias_lembradas(a.listar()) == {"paradojabar": "lazer"}
+    assert categorias_lembradas(b.listar()) == {"paradojabar": "alimentação"}
 
 
 def test_mesma_origem_em_contas_diferentes(postgres):

@@ -5,7 +5,7 @@ nome, que o usuário pode ter trocado).
 """
 
 import io
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from gastos.importacao.comum import (
     CARTAO,
@@ -16,6 +16,8 @@ from gastos.importacao.comum import (
     LinhaInvalida,
     MAXIMO_DE_NOMES,
     adivinhar_categoria,
+    categorias_lembradas,
+    lembrar_categorias,
     tirar_transferencias_para_voce,
     validar_meu_nome,
 )
@@ -31,6 +33,7 @@ __all__ = [
     "LinhaInvalida",
     "MAXIMO_DE_NOMES",
     "adivinhar_categoria",
+    "categorias_lembradas",
     "ler_extrato",
     "ler_nubank",
     "ler_ofx",
@@ -38,10 +41,13 @@ __all__ = [
 ]
 
 
-def ler_extrato(conteudo: bytes, meus_nomes: Sequence[str] = ()) -> Extrato:
+def ler_extrato(
+    conteudo: bytes, meus_nomes: Sequence[str] = (), lembradas: Mapping[str, str] | None = None
+) -> Extrato:
     """Lê o arquivo inteiro com o leitor certo.
 
     O que foi enviado para um dos meus_nomes (outra conta do usuário) vai para os ignorados.
+    lembradas (de categorias_lembradas) dá a cada loja já vista a categoria usada antes.
     Levanta FormatoDesconhecido, LinhaInvalida ou, se um CSV não estiver em UTF-8,
     UnicodeDecodeError (o OFX aceita também Windows-1252).
     """
@@ -57,4 +63,5 @@ def ler_extrato(conteudo: bytes, meus_nomes: Sequence[str] = ()) -> Extrato:
             )
         extrato = ler_nubank(io.StringIO(texto, newline=""))
     tirar_transferencias_para_voce(extrato, meus_nomes)
+    lembrar_categorias(extrato, lembradas or {})
     return extrato

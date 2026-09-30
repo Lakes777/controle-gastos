@@ -28,6 +28,7 @@ TOTAL             R$ 960,20
 - **Resumir** o total por categoria, com filtro por mês
 - **Gráfico** de barras no terminal, por categoria ou por mês
 - **Importar extratos:** CSV do Nubank ou **OFX de qualquer banco** (Inter, Itaú, Nubank...), da fatura do cartão ou da conta, com categoria adivinhada pela descrição, `--simular`, linhas que podem ser deixadas de fora e sem nunca importar o mesmo gasto duas vezes
+- **Lembra a categoria de cada loja:** corrigiu "Paradojabar" para lazer uma vez, e as próximas compras lá já chegam como lazer na importação (a linha de comando marca com "categoria lembrada", a página com •)
 - **Pix para outra conta sua não é gasto:** com o seu nome cadastrado, a transferência do Inter para o Nubank (por exemplo) só troca o dinheiro de lugar e fica de fora
 - **Gastos recorrentes** (aluguel, internet, assinaturas), lançados sozinhos quando o dia chega, inclusive os meses em que o programa não foi aberto
 - **Orçamento** mensal por categoria, com aviso de ATENÇÃO a partir de 80% e de ESTOUROU acima do limite, mostrado também ao adicionar ou editar um gasto
@@ -282,6 +283,7 @@ controle-gastos/
 - **OFX: um leitor para quase todos os bancos:** OFX é o formato padrão que os bancos exportam para programas de finanças. Cada transação traz um identificador único dado pelo banco (`FITID`), que vira a origem; ao lado dele vai o código do banco e um resumo (SHA-256) do número da conta, para duas contas não se confundirem sem guardar o número em si. O arquivo é lido com expressões regulares, que funcionam nas duas versões do formato (1.x em SGML, com tags sem fechamento, e 2.x em XML). Muitos bancos ainda gravam o OFX em Windows-1252; o programa tenta UTF-8 primeiro e, se não der, lê em 1252. As regras do que ignorar (pagamento de fatura, aplicação, Pix no Crédito) são as mesmas do Nubank e aceitam os jeitos diferentes que cada banco escreve ("PAGTO FATURA", "Pagamento de fatura").
 - **Conferido com o extrato real do Inter:** o OFX do Inter diz `CHARSET:1252` no cabeçalho, mas vem em UTF-8 (por isso o UTF-8 é tentado primeiro), e escreve o Pix como `Pix enviado: "Cp :18236120-Nome"`, com o código do banco da outra ponta; a descrição vira "Pix enviado - Nome", usando o nome com acentos do campo `NAME`.
 - **Transferência para si mesmo:** o arquivo não diz de quem é a conta, então o usuário cadastra o próprio nome. A comparação ignora acentos e maiúsculas ("André" = "ANDRE") e só vale para o nome inteiro, entre limites de palavra: "Ana Lima" não esconde "Ana Limeira" nem "Joana Lima". Por isso o nome precisa ter sobrenome. A regra vale para todos os formatos, inclusive o CSV do Nubank.
+- **Categoria lembrada pela loja:** ao importar, cada compra de uma loja que já tem gastos recebe a categoria do gasto mais recente de lá, antes das regras fixas (a escolha do usuário vale mais que o palpite). A loja é a descrição sem acentos, números, pontuação e "Parcela 2/3", então "Pag*Steam - Parcela 2/3" e "PAG STEAM" são a mesma. "outros" não conta, porque é o que sobra quando ninguém escolheu. Descrições feitas só de palavras genéricas ("PIX TRANSF 29/09", "COMPRA CARTAO 1234") não são lembradas: não dizem a loja, e a categoria de um Pix passaria para todos. Não precisa de tabela nova: o histórico de gastos já é a memória.
 - **Deixar linhas de fora:** para os casos que nenhuma regra pega, a prévia da página tem uma caixa por linha, e a linha de comando numera a lista e aceita `--pular 2,5`. Um número que não existe na lista cancela tudo, em vez de importar sem aquela linha.
 - **CSV do Inter recusado com explicação:** ele não tem identificador por transação (o OFX tem), então uma segunda importação do mesmo período poderia duplicar gastos. O programa reconhece o arquivo e pede o OFX.
 - **Formato reconhecido pelo conteúdo:** o arquivo é identificado pelo que tem dentro (a tag `<OFX>` ou o cabeçalho do CSV), não pela extensão, que o usuário pode ter trocado.
@@ -325,7 +327,8 @@ controle-gastos/
 - [x] Importar extratos em OFX (qualquer banco: Inter, Itaú, Nubank...)
 - [x] Conferir o OFX com um extrato real do Inter
 - [x] Ignorar Pix para outra conta sua e deixar linhas de fora da importação
-- [ ] Conferir o OFX de outros bancos (Itaú, Nubank) com arquivos reais
+- [x] Lembrar a categoria já usada na mesma loja ao importar
+- [ ] Conferir o OFX de outros bancos (Itaú, Nubank) com arquivos reais (e se as descrições deles dizem a loja)
 - [x] Versão web com API REST (FastAPI)
 - [x] Colocar a versão web no ar (Vercel)
 - [x] Contas de usuário com login
