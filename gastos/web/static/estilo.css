@@ -655,6 +655,17 @@ body {
   border-radius: 999px;
 }
 
+/* Na etiqueta do nome, a lixeira fica menor para caber na altura da etiqueta */
+.meus-nomes__lista .botao-icone {
+  width: 26px;
+  height: 26px;
+}
+
+.meus-nomes__lista .botao-icone svg {
+  width: 15px;
+  height: 15px;
+}
+
 .meus-nomes__form {
   display: flex;
   flex-wrap: wrap;

@@ -635,11 +635,7 @@ function desenharMeusNomes(nomes) {
     : "Pix para outra conta sua";
   $("#meus-nomes-lista").replaceChildren(
     ...nomes.map((nome) => {
-      const remover = el("button", {
-        class: "botao-texto botao-texto--perigo", type: "button", text: "Remover",
-        "aria-label": `Remover o nome ${nome}`,
-      });
-      remover.addEventListener("click", () => mudarMeusNomes(
+      const remover = botaoIcone("remover", `Remover o nome ${nome}`, () => mudarMeusNomes(
         () => api(`/importar/meus-nomes/${encodeURIComponent(nome)}`, { method: "DELETE" }),
       ));
       return el("li", {}, el("span", { text: nome }), remover);
