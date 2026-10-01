@@ -515,6 +515,48 @@ body {
   color: var(--perigo);
 }
 
+/* Botões só com ícone (editar e remover) */
+.botao-icone {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+}
+
+.botao-icone:hover {
+  background: var(--surface-hover);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.botao-icone--remover:hover {
+  color: var(--perigo);
+}
+
+.botao-icone:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Com mouse, os ícones da tabela ficam apagados até a linha receber o cursor ou o foco */
+@media (hover: hover) {
+  .tabela__acoes .botao-icone {
+    opacity: 0.45;
+  }
+
+  .tabela tr:hover .botao-icone,
+  .tabela tr:focus-within .botao-icone {
+    opacity: 1;
+  }
+}
+
 /* ---------- Exportar ---------- */
 .exportar {
   display: flex;
@@ -686,6 +728,7 @@ body {
 .tabela__acoes {
   text-align: right;
   white-space: nowrap;
+  padding-block: 4px !important;
 }
 
 .etiqueta {

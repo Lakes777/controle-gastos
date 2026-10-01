@@ -19,6 +19,40 @@ function el(tag, { class: classe, text, ...atributos } = {}, ...filhos) {
   return elemento;
 }
 
+// Ícones da Lucide (lucide.dev, licença ISC): cada um é uma lista de caminhos SVG.
+const ICONES = {
+  editar: [
+    "M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z",
+    "m15 5 4 4",
+  ],
+  remover: [
+    "M3 6h18",
+    "M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6",
+    "M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2",
+    "M10 11v6",
+    "M14 11v6",
+  ],
+};
+
+// Botão só com ícone; o rótulo vai no aria-label (leitor de tela) e no title (dica do mouse).
+function botaoIcone(icone, rotulo, aoClicar) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  for (const [nome, valor] of Object.entries({
+    viewBox: "0 0 24 24", width: "18", height: "18", fill: "none", stroke: "currentColor",
+    "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true",
+  })) svg.setAttribute(nome, valor);
+  for (const d of ICONES[icone]) {
+    const caminho = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    caminho.setAttribute("d", d);
+    svg.append(caminho);
+  }
+  const botao = el("button", {
+    class: `botao-icone botao-icone--${icone}`, type: "button", "aria-label": rotulo, title: rotulo,
+  }, svg);
+  botao.addEventListener("click", aoClicar);
+  return botao;
+}
+
 // ---------- Datas e dinheiro ----------
 
 function hojeISO() {
@@ -194,12 +228,11 @@ function desenharGastos(gastos) {
   const recentes = [...gastos].reverse();
   $("#linhas").replaceChildren(
     ...recentes.map((gasto) => {
-      const editar = el("button", { class: "botao-texto", type: "button", text: "Editar" });
-      editar.addEventListener("click", () => comecarEdicao(gasto));
-      const remover = el("button", {
-        class: "botao-texto botao-texto--perigo", type: "button", text: "Remover",
-      });
-      remover.addEventListener("click", () => removerGasto(gasto));
+      const nome = gasto.descricao || gasto.categoria;
+      const editar = botaoIcone("editar", `Editar ${nome} (${formatarData(gasto.data)})`,
+        () => comecarEdicao(gasto));
+      const remover = botaoIcone("remover", `Remover ${nome} (${formatarData(gasto.data)})`,
+        () => removerGasto(gasto));
 
       const linha = el("tr", {},
         el("td", { class: "tabela__data", text: formatarData(gasto.data) }),
@@ -337,11 +370,8 @@ function desenharOrcamentos(situacoes, mes) {
     ...situacoes.map((s) => {
       const cheio = el("div", { class: "trilho__cheio" });
       cheio.style.width = `${Math.min(Number(s.gasto) / Number(s.limite), 1) * 100}%`;
-      const remover = el("button", {
-        class: "botao-texto botao-texto--perigo", type: "button", text: "Remover",
-        "aria-label": `Remover o orçamento de ${s.categoria}`,
-      });
-      remover.addEventListener("click", () => removerOrcamento(s.categoria));
+      const remover = botaoIcone("remover", `Remover o orçamento de ${s.categoria}`,
+        () => removerOrcamento(s.categoria));
       return el("div", { class: `orcamento orcamento--${s.nivel} spot` },
         el("div", { class: "orcamento__topo" },
           el("span", { class: "orcamento__categoria", text: s.categoria }),
@@ -397,11 +427,8 @@ function desenharRecorrentes(recorrentes) {
   $("#aviso-recorrentes").hidden = recorrentes.length > 0;
   $("#lista-recorrentes").replaceChildren(
     ...recorrentes.map((r) => {
-      const remover = el("button", {
-        class: "botao-texto botao-texto--perigo", type: "button", text: "Remover",
-        "aria-label": `Remover o gasto recorrente de ${r.categoria}`,
-      });
-      remover.addEventListener("click", () => removerRecorrente(r));
+      const remover = botaoIcone("remover", `Remover o gasto recorrente de ${r.categoria}`,
+        () => removerRecorrente(r));
       return el("li", { class: "recorrente spot" },
         el("span", { class: "recorrente__info", text: `${formatarReais(r.valor)} em ${r.categoria}` },
           el("small", { text: `todo dia ${r.dia} · próximo: ${formatarData(r.proxima_data)}` })),
