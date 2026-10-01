@@ -796,7 +796,9 @@ function moverPilula() {
 }
 
 function mostrarAba(focar) {
-  const id = decodeURIComponent(location.hash.slice(1));
+  // Os ids das abas são simples (sem acento nem espaço): o hash é comparado como veio,
+  // sem decodeURIComponent, que quebraria a página com um endereço como "#%".
+  const id = location.hash.slice(1);
   const atual = abas.find((aba) => aba.id === id) ?? abas[0];
 
   linksAbas.forEach((link) => {
