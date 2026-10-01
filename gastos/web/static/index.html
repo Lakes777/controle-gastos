@@ -21,6 +21,23 @@
         <button class="botao botao--pequeno botao--fantasma" type="button" id="botao-conta" hidden></button>
       </div>
     </div>
+    <div class="container topo__barra">
+      <!-- Cada link abre uma aba (o endereço muda para #gastos, #orcamento...) -->
+      <nav class="abas" aria-label="Seções">
+        <span class="abas__pilula" id="abas-pilula" aria-hidden="true"></span>
+        <ul class="abas__lista">
+          <li><a class="abas__link" href="#resumo">Resumo</a></li>
+          <li><a class="abas__link" href="#gastos">Gastos</a></li>
+          <li><a class="abas__link" href="#orcamento">Orçamento</a></li>
+          <li><a class="abas__link" href="#recorrentes">Recorrentes</a></li>
+          <li><a class="abas__link" href="#importar">Importar</a></li>
+        </ul>
+      </nav>
+      <div class="periodo" id="periodo">
+        <label class="periodo__rotulo" for="mes">Período</label>
+        <select class="campo campo--pequeno" id="mes"></select>
+      </div>
+    </div>
   </header>
 
   <main class="container">
@@ -31,18 +48,41 @@
       <a href="https://github.com/Lakes777/controle-gastos" target="_blank" rel="noopener">Ver o código no GitHub</a>
     </p>
 
-    <div class="periodo">
-      <label class="periodo__rotulo" for="mes">Período</label>
-      <select class="campo" id="mes"></select>
-    </div>
+    <!-- Cada aba entra em até 3 blocos (data-grupo 0, 1 e 2): título, conteúdo principal, resto -->
+    <section class="aba" id="resumo" aria-labelledby="titulo-resumo">
+      <h2 class="aba__titulo reveal" id="titulo-resumo" tabindex="-1" data-grupo="0">Resumo</h2>
 
-    <!-- Números do período: preenchidos pelo app.js com GET /resumo -->
-    <section class="numeros" id="numeros" aria-label="Resumo do período"></section>
+      <!-- Números do período: preenchidos pelo app.js com GET /resumo -->
+      <div class="numeros reveal" id="numeros" data-grupo="1"></div>
 
-    <div class="colunas">
-      <div class="coluna">
-        <section class="bloco" aria-labelledby="titulo-form">
-          <h2 class="bloco__titulo" id="titulo-form">Novo gasto</h2>
+      <div class="colunas reveal" data-grupo="2">
+        <section class="cartao spot" aria-labelledby="titulo-categorias">
+          <h3 class="cartao__titulo" id="titulo-categorias">Por categoria</h3>
+          <div class="barras" id="barras"></div>
+        </section>
+        <section class="cartao spot" aria-labelledby="titulo-ultimos">
+          <div class="cartao__cabecalho">
+            <h3 class="cartao__titulo" id="titulo-ultimos">Últimos gastos</h3>
+            <a class="link-aba" href="#gastos">Ver todos</a>
+          </div>
+          <ul class="ultimos" id="ultimos"></ul>
+        </section>
+      </div>
+    </section>
+
+    <section class="aba" id="gastos" aria-labelledby="titulo-gastos">
+      <div class="aba__cabecalho reveal" data-grupo="0">
+        <h2 class="aba__titulo" id="titulo-gastos" tabindex="-1">Gastos</h2>
+        <div class="exportar">
+          <span class="exportar__rotulo">Baixar:</span>
+          <a class="botao botao--pequeno botao--fantasma" id="exportar-xlsx" download>Excel (.xlsx)</a>
+          <a class="botao botao--pequeno botao--fantasma" id="exportar-csv" download>CSV</a>
+        </div>
+      </div>
+
+      <div class="lado-a-lado">
+        <section class="cartao spot reveal" aria-labelledby="titulo-form" data-grupo="1">
+          <h3 class="cartao__titulo" id="titulo-form">Novo gasto</h3>
           <form class="formulario" id="form-gasto" novalidate>
             <label class="rotulo">Valor (R$)
               <input class="campo" id="valor" inputmode="decimal" autocomplete="off"
@@ -52,7 +92,7 @@
               <input class="campo" id="categoria" list="lista-categorias" maxlength="40"
                      autocomplete="off" placeholder="mercado" required>
             </label>
-            <label class="rotulo rotulo--largo">Descrição (opcional)
+            <label class="rotulo">Descrição (opcional)
               <input class="campo" id="descricao" maxlength="200" autocomplete="off"
                      placeholder="compras da semana">
             </label>
@@ -64,70 +104,9 @@
               <button class="botao botao--fantasma" type="button" id="botao-cancelar" hidden>Cancelar</button>
             </div>
           </form>
-          <datalist id="lista-categorias"></datalist>
         </section>
 
-        <section class="bloco" aria-labelledby="titulo-importar">
-          <h2 class="bloco__titulo" id="titulo-importar">Importar extrato</h2>
-          <p class="bloco__nota">
-            CSV do Nubank ou OFX de qualquer banco (Inter, Itaú...), da fatura do cartão ou da conta.
-            Você revisa tudo antes de salvar, e o mesmo gasto nunca entra duas vezes.
-            <a href="/importar/exemplo.csv" download>Baixar um CSV de exemplo</a>
-          </p>
-          <label class="botao botao--fantasma arquivo" id="rotulo-arquivo">
-            Escolher arquivo .csv ou .ofx
-            <input type="file" id="arquivo-csv" accept=".csv,.ofx,text/csv,application/x-ofx" class="invisivel">
-          </label>
-
-          <details class="meus-nomes">
-            <summary id="meus-nomes-titulo">Pix para outra conta sua</summary>
-            <p class="bloco__nota">
-              Cadastre seu nome como aparece nos extratos: Pix enviado para ele (do Inter para o
-              Nubank, por exemplo) só troca o dinheiro de lugar e não entra como gasto.
-            </p>
-            <ul class="meus-nomes__lista" id="meus-nomes-lista"></ul>
-            <form class="meus-nomes__form" id="form-meu-nome">
-              <input class="campo campo--pequeno" id="campo-meu-nome" maxlength="100"
-                     placeholder="Nome Sobrenome" aria-label="Seu nome como aparece no extrato" required>
-              <button class="botao botao--pequeno botao--fantasma" type="submit">Adicionar</button>
-            </form>
-          </details>
-
-          <!-- Prévia: preenchida pelo app.js com POST /importar/previa -->
-          <div class="previa" id="previa" hidden>
-            <p class="previa__resumo" id="previa-resumo"></p>
-            <table class="tabela tabela--previa" id="previa-tabela">
-              <thead>
-                <tr>
-                  <th scope="col"><span class="invisivel">Importar</span></th>
-                  <th scope="col">Data</th>
-                  <th scope="col">Descrição</th>
-                  <th scope="col">Categoria</th>
-                  <th scope="col" class="tabela__valor">Valor</th>
-                </tr>
-              </thead>
-              <tbody id="previa-linhas"></tbody>
-            </table>
-            <details class="previa__ignorados" id="previa-ignorados" hidden>
-              <summary id="previa-ignorados-titulo"></summary>
-              <ul id="previa-ignorados-lista"></ul>
-            </details>
-            <div class="formulario__acoes">
-              <button class="botao" type="button" id="botao-importar">Importar</button>
-              <button class="botao botao--fantasma" type="button" id="botao-cancelar-importacao">Cancelar</button>
-            </div>
-          </div>
-        </section>
-
-        <section class="bloco" aria-labelledby="titulo-lista">
-          <div class="bloco__cabecalho">
-            <h2 class="bloco__titulo" id="titulo-lista">Gastos</h2>
-            <div class="exportar">
-              <span class="exportar__rotulo">Baixar:</span>
-              <a class="botao botao--pequeno botao--fantasma" id="exportar-xlsx" download>Excel (.xlsx)</a>
-              <a class="botao botao--pequeno botao--fantasma" id="exportar-csv" download>CSV</a>
-            </div>
-          </div>
+        <div class="reveal" data-grupo="2">
           <p class="aviso" id="aviso-lista" hidden></p>
           <table class="tabela" id="tabela">
             <thead>
@@ -141,44 +120,138 @@
             </thead>
             <tbody id="linhas"></tbody>
           </table>
-        </section>
+        </div>
+      </div>
+    </section>
+
+    <section class="aba" id="orcamento" aria-labelledby="titulo-orcamento">
+      <div class="reveal" data-grupo="0">
+        <h2 class="aba__titulo" id="titulo-orcamento" tabindex="-1">Orçamento do mês</h2>
+        <p class="aba__nota">Um limite por mês para cada categoria. Ao chegar perto, o aviso fica amarelo.</p>
       </div>
 
-      <aside class="coluna">
-        <section class="bloco" aria-labelledby="titulo-categorias">
-          <h2 class="bloco__titulo" id="titulo-categorias">Por categoria</h2>
-          <div class="barras" id="barras"></div>
-        </section>
-
-        <section class="bloco" aria-labelledby="titulo-orcamento">
-          <h2 class="bloco__titulo" id="titulo-orcamento">Orçamento do mês</h2>
-          <p class="bloco__nota" id="nota-orcamento"></p>
+      <div class="lado-a-lado lado-a-lado--invertido">
+        <div class="reveal" data-grupo="1">
+          <p class="aba__nota" id="nota-orcamento"></p>
           <div class="orcamentos" id="orcamentos"></div>
-          <form class="linha-form" id="form-orcamento">
-            <input class="campo campo--pequeno" id="orcamento-categoria" list="lista-categorias"
-                   maxlength="40" placeholder="categoria" aria-label="Categoria do orçamento" required>
-            <input class="campo campo--pequeno" id="orcamento-limite" inputmode="decimal"
-                   placeholder="limite (R$)" aria-label="Limite por mês" required>
-            <button class="botao botao--pequeno" type="submit">Definir</button>
-          </form>
-        </section>
+        </div>
 
-        <section class="bloco" aria-labelledby="titulo-recorrentes">
-          <h2 class="bloco__titulo" id="titulo-recorrentes">Gastos recorrentes</h2>
-          <p class="bloco__nota">Lançados sozinhos todo mês quando o dia chega (aluguel, internet, assinaturas).</p>
-          <ul class="recorrentes" id="recorrentes"></ul>
-          <form class="linha-form" id="form-recorrente">
-            <input class="campo campo--pequeno" id="recorrente-valor" inputmode="decimal"
-                   placeholder="valor (R$)" aria-label="Valor do recorrente" required>
-            <input class="campo campo--pequeno" id="recorrente-categoria" list="lista-categorias"
-                   maxlength="40" placeholder="categoria" aria-label="Categoria do recorrente" required>
-            <input class="campo campo--pequeno campo--dia" id="recorrente-dia" type="number"
-                   min="1" max="31" placeholder="dia" aria-label="Dia do mês" required>
-            <button class="botao botao--pequeno" type="submit">Criar</button>
+        <section class="cartao spot reveal" aria-labelledby="titulo-novo-orcamento" data-grupo="2">
+          <h3 class="cartao__titulo" id="titulo-novo-orcamento">Definir limite</h3>
+          <form class="formulario" id="form-orcamento" novalidate>
+            <label class="rotulo">Categoria
+              <input class="campo" id="orcamento-categoria" list="lista-categorias"
+                     maxlength="40" autocomplete="off" placeholder="mercado" required>
+            </label>
+            <label class="rotulo">Limite por mês (R$)
+              <input class="campo" id="orcamento-limite" inputmode="decimal" autocomplete="off"
+                     placeholder="600,00" required>
+            </label>
+            <p class="formulario__nota">Se a categoria já tiver limite, ele é trocado pelo novo.</p>
+            <div class="formulario__acoes">
+              <button class="botao" type="submit">Definir</button>
+            </div>
           </form>
         </section>
-      </aside>
-    </div>
+      </div>
+    </section>
+
+    <section class="aba" id="recorrentes" aria-labelledby="titulo-recorrentes">
+      <div class="reveal" data-grupo="0">
+        <h2 class="aba__titulo" id="titulo-recorrentes" tabindex="-1">Gastos recorrentes</h2>
+        <p class="aba__nota">Lançados sozinhos todo mês quando o dia chega (aluguel, internet, assinaturas).</p>
+      </div>
+
+      <div class="lado-a-lado lado-a-lado--invertido">
+        <div class="reveal" data-grupo="1">
+          <p class="aviso" id="aviso-recorrentes" hidden>Nenhum gasto recorrente ainda. Crie o primeiro no formulário.</p>
+          <ul class="recorrentes" id="lista-recorrentes"></ul>
+        </div>
+
+        <section class="cartao spot reveal" aria-labelledby="titulo-novo-recorrente" data-grupo="2">
+          <h3 class="cartao__titulo" id="titulo-novo-recorrente">Novo recorrente</h3>
+          <form class="formulario" id="form-recorrente" novalidate>
+            <label class="rotulo">Valor (R$)
+              <input class="campo" id="recorrente-valor" inputmode="decimal" autocomplete="off"
+                     placeholder="99,90" required>
+            </label>
+            <label class="rotulo">Categoria
+              <input class="campo" id="recorrente-categoria" list="lista-categorias"
+                     maxlength="40" autocomplete="off" placeholder="internet" required>
+            </label>
+            <label class="rotulo">Dia do mês
+              <input class="campo campo--dia" id="recorrente-dia" type="number"
+                     min="1" max="31" placeholder="15" required>
+            </label>
+            <p class="formulario__nota">Em meses mais curtos, o dia 31 vira o último dia do mês.</p>
+            <div class="formulario__acoes">
+              <button class="botao" type="submit">Criar</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </section>
+
+    <section class="aba" id="importar" aria-labelledby="titulo-importar">
+      <div class="reveal" data-grupo="0">
+        <h2 class="aba__titulo" id="titulo-importar" tabindex="-1">Importar extrato</h2>
+        <p class="aba__nota">
+          CSV do Nubank ou OFX de qualquer banco (Inter, Itaú...), da fatura do cartão ou da conta.
+          Você revisa tudo antes de salvar, e o mesmo gasto nunca entra duas vezes.
+          <a href="/importar/exemplo.csv" download>Baixar um CSV de exemplo</a>
+        </p>
+      </div>
+
+      <div class="cartao spot importar reveal" data-grupo="1">
+        <label class="botao arquivo" id="rotulo-arquivo">
+          Escolher arquivo .csv ou .ofx
+          <input type="file" id="arquivo-csv" accept=".csv,.ofx,text/csv,application/x-ofx" class="invisivel">
+        </label>
+
+        <details class="meus-nomes">
+          <summary id="meus-nomes-titulo">Pix para outra conta sua</summary>
+          <p class="aba__nota">
+            Cadastre seu nome como aparece nos extratos: Pix enviado para ele (do Inter para o
+            Nubank, por exemplo) só troca o dinheiro de lugar e não entra como gasto.
+          </p>
+          <ul class="meus-nomes__lista" id="meus-nomes-lista"></ul>
+          <form class="meus-nomes__form" id="form-meu-nome">
+            <input class="campo campo--pequeno" id="campo-meu-nome" maxlength="100"
+                   placeholder="Nome Sobrenome" aria-label="Seu nome como aparece no extrato" required>
+            <button class="botao botao--pequeno botao--fantasma" type="submit">Adicionar</button>
+          </form>
+        </details>
+      </div>
+
+      <!-- Prévia: preenchida pelo app.js com POST /importar/previa -->
+      <div class="reveal" data-grupo="2">
+        <div class="previa" id="previa" hidden>
+          <p class="previa__resumo" id="previa-resumo"></p>
+          <table class="tabela tabela--previa" id="previa-tabela">
+            <thead>
+              <tr>
+                <th scope="col"><span class="invisivel">Importar</span></th>
+                <th scope="col">Data</th>
+                <th scope="col">Descrição</th>
+                <th scope="col">Categoria</th>
+                <th scope="col" class="tabela__valor">Valor</th>
+              </tr>
+            </thead>
+            <tbody id="previa-linhas"></tbody>
+          </table>
+          <details class="previa__ignorados" id="previa-ignorados" hidden>
+            <summary id="previa-ignorados-titulo"></summary>
+            <ul id="previa-ignorados-lista"></ul>
+          </details>
+          <div class="formulario__acoes">
+            <button class="botao" type="button" id="botao-importar">Importar</button>
+            <button class="botao botao--fantasma" type="button" id="botao-cancelar-importacao">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <datalist id="lista-categorias"></datalist>
   </main>
 
   <!-- Janela de entrar / criar conta (só na versão online) -->

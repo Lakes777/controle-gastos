@@ -146,7 +146,7 @@ function desenharNumeros(resumo, gastos) {
   ];
   $("#numeros").replaceChildren(
     ...numeros.map(([valor, rotulo]) =>
-      el("div", { class: "numero" },
+      el("div", { class: "numero spot" },
         el("span", { class: "numero__valor", text: valor }),
         el("span", { class: "numero__rotulo", text: rotulo }),
       ),
@@ -186,8 +186,8 @@ function desenharGastos(gastos) {
   $("#tabela").hidden = vazio;
   if (vazio) {
     aviso.textContent = estado.mes
-      ? `Nenhum gasto em ${nomeDoMes(estado.mes)}. Adicione o primeiro no formulário acima.`
-      : "Nenhum gasto registrado ainda. Adicione o primeiro no formulário acima.";
+      ? `Nenhum gasto em ${nomeDoMes(estado.mes)}. Adicione o primeiro no formulário.`
+      : "Nenhum gasto registrado ainda. Adicione o primeiro no formulário.";
     return;
   }
   // A API devolve em ordem cronológica; na tela, o mais recente vem primeiro.
@@ -211,6 +211,23 @@ function desenharGastos(gastos) {
       linha.classList.toggle("linha--editando", estado.editando?.id === gasto.id);
       return linha;
     }),
+  );
+}
+
+// Na aba Resumo: os 5 mais recentes do período, só para olhar.
+function desenharUltimos(gastos) {
+  if (!gastos.length) {
+    $("#ultimos").replaceChildren(el("li", { class: "aviso", text: "Nenhum gasto no período." }));
+    return;
+  }
+  $("#ultimos").replaceChildren(
+    ...[...gastos].reverse().slice(0, 5).map((gasto) =>
+      el("li", { class: "ultimo" },
+        el("span", { class: "ultimo__info", text: gasto.descricao || gasto.categoria },
+          el("small", { text: `${formatarData(gasto.data)} · ${gasto.categoria}` })),
+        el("span", { class: "ultimo__valor", text: formatarReais(gasto.valor) }),
+      ),
+    ),
   );
 }
 
@@ -312,7 +329,7 @@ function desenharOrcamentos(situacoes, mes) {
     : `Mostrando ${nomeDoMes(mes)} (o orçamento é sempre de um mês).`;
   if (!situacoes.length) {
     $("#orcamentos").replaceChildren(
-      el("p", { class: "aviso", text: "Defina um limite mensal para uma categoria abaixo." }),
+      el("p", { class: "aviso", text: "Nenhum limite ainda. Defina o primeiro no formulário." }),
     );
     return;
   }
@@ -325,7 +342,7 @@ function desenharOrcamentos(situacoes, mes) {
         "aria-label": `Remover o orçamento de ${s.categoria}`,
       });
       remover.addEventListener("click", () => removerOrcamento(s.categoria));
-      return el("div", { class: `orcamento orcamento--${s.nivel}` },
+      return el("div", { class: `orcamento orcamento--${s.nivel} spot` },
         el("div", { class: "orcamento__topo" },
           el("span", { class: "orcamento__categoria", text: s.categoria }),
           el("span", {
@@ -377,14 +394,15 @@ async function removerOrcamento(categoria) {
 // ---------- Recorrentes ----------
 
 function desenharRecorrentes(recorrentes) {
-  $("#recorrentes").replaceChildren(
+  $("#aviso-recorrentes").hidden = recorrentes.length > 0;
+  $("#lista-recorrentes").replaceChildren(
     ...recorrentes.map((r) => {
       const remover = el("button", {
         class: "botao-texto botao-texto--perigo", type: "button", text: "Remover",
         "aria-label": `Remover o gasto recorrente de ${r.categoria}`,
       });
       remover.addEventListener("click", () => removerRecorrente(r));
-      return el("li", { class: "recorrente" },
+      return el("li", { class: "recorrente spot" },
         el("span", { class: "recorrente__info", text: `${formatarReais(r.valor)} em ${r.categoria}` },
           el("small", { text: `todo dia ${r.dia} · próximo: ${formatarData(r.proxima_data)}` })),
         remover,
@@ -732,6 +750,96 @@ function iniciarConta() {
   atualizarSessao().catch(() => {}); // sem isso, a página continua funcionando
 }
 
+// ---------- Abas (igual ao portfólio: cada função numa aba, escolhida pelo endereço) ----------
+
+const abas = [...document.querySelectorAll("main > .aba")];
+const linksAbas = document.querySelectorAll(".abas__link");
+const pilula = $("#abas-pilula");
+// O período não muda nada nos recorrentes nem na importação; lá ele fica escondido.
+const ABAS_SEM_PERIODO = ["recorrentes", "importar"];
+let abasIniciadas = false;
+let trocaAtual = 0; // ao clicar rápido em várias abas, só a última troca vale
+
+// Pílula do menu desliza até o link da aba ativa
+function moverPilula() {
+  const ativo = document.querySelector(".abas__link--ativo");
+  if (!ativo) return;
+  pilula.style.width = `${ativo.offsetWidth}px`;
+  pilula.style.transform = `translateX(${ativo.offsetLeft}px)`;
+}
+
+function mostrarAba(focar) {
+  const id = decodeURIComponent(location.hash.slice(1));
+  const atual = abas.find((aba) => aba.id === id) ?? abas[0];
+
+  linksAbas.forEach((link) => {
+    const ativo = link.getAttribute("href") === `#${atual.id}`;
+    link.classList.toggle("abas__link--ativo", ativo);
+    if (ativo) {
+      link.setAttribute("aria-current", "page");
+      // No celular a barra rola de lado: traz a aba escolhida para a vista.
+      link.scrollIntoView({ block: "nearest", inline: "nearest" });
+    } else {
+      link.removeAttribute("aria-current");
+    }
+  });
+  moverPilula();
+  $("#periodo").classList.toggle("periodo--escondido", ABAS_SEM_PERIODO.includes(atual.id));
+  const titulo = atual.querySelector(".aba__titulo");
+  document.title = `${titulo.textContent} | Controle de Gastos`;
+
+  const anterior = abasIniciadas && abas.find((aba) => !aba.hidden && aba !== atual);
+  const estaTroca = ++trocaAtual;
+  abasIniciadas = true;
+
+  function entrar() {
+    if (estaTroca !== trocaAtual) return;
+    abas.forEach((aba) => {
+      aba.hidden = aba !== atual;
+      aba.classList.remove("aba--saindo");
+    });
+    atual.classList.remove("aba--entrando");
+    void atual.offsetWidth; // força o navegador a reiniciar a animação
+    atual.classList.add("aba--entrando");
+    atual.classList.add("animar-barras");
+    setTimeout(() => atual.classList.remove("animar-barras"), 1200);
+    window.scrollTo({ top: 0, behavior: "instant" });
+    if (focar) titulo.focus({ preventScroll: true });
+  }
+
+  // A aba anterior some rapidinho antes da nova entrar
+  if (anterior) {
+    anterior.classList.add("aba--saindo");
+    setTimeout(entrar, 150);
+  } else {
+    entrar();
+  }
+}
+
+function iniciarAbas() {
+  document.documentElement.classList.add("com-abas");
+  window.addEventListener("hashchange", () => mostrarAba(true));
+  window.addEventListener("resize", moverPilula);
+  document.fonts.ready.then(moverPilula);
+  // Na primeira vez a pílula já nasce no lugar, sem deslizar a partir do canto
+  pilula.style.transition = "none";
+  mostrarAba(false);
+  void pilula.offsetWidth;
+  pilula.style.transition = "";
+}
+
+// Brilho que segue o mouse nos cartões (.spot). Um ouvinte só, na página toda,
+// porque muitos cartões são recriados a cada recarga.
+function iniciarBrilho() {
+  document.addEventListener("pointermove", (evento) => {
+    const cartao = evento.target.closest?.(".spot");
+    if (!cartao) return;
+    const caixa = cartao.getBoundingClientRect();
+    cartao.style.setProperty("--mx", `${evento.clientX - caixa.left}px`);
+    cartao.style.setProperty("--my", `${evento.clientY - caixa.top}px`);
+  });
+}
+
 // ---------- Carregar tudo ----------
 
 async function recarregar() {
@@ -749,6 +857,7 @@ async function recarregar() {
   desenharNumeros(resumo, gastos);
   desenharBarras(resumo);
   desenharGastos(gastos);
+  desenharUltimos(gastos);
   desenharOrcamentos(situacoes, mesOrcamento);
   desenharRecorrentes(recorrentes);
   desenharMeusNomes(meusNomes);
@@ -758,6 +867,8 @@ async function recarregar() {
 }
 
 function iniciar() {
+  iniciarAbas();
+  iniciarBrilho();
   $("#data").value = hojeISO();
   $("#mes").addEventListener("change", (evento) => {
     estado.mes = evento.target.value;

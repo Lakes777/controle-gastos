@@ -17,12 +17,19 @@
   --font: "Inter", system-ui, sans-serif;
   --mono: "Fira Code", monospace;
   --radius: 14px;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-texto: cubic-bezier(0, -0.02, 0.49, 0.99);
 }
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* O topo fica fixo: ao rolar até algo (como a prévia da importação), ele não cobre o começo */
+html {
+  scroll-padding-top: 120px;
 }
 
 body {
@@ -53,7 +60,11 @@ body {
 
 /* ---------- Topo ---------- */
 .topo {
-  background: var(--topo);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgb(18 19 21 / 0.92);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
 
@@ -62,7 +73,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-block: 20px;
+  padding-block: 16px 10px;
 }
 
 .topo__titulo {
@@ -118,41 +129,208 @@ body {
   white-space: nowrap;
 }
 
-/* ---------- Período e números ---------- */
-.periodo {
+/* ---------- Abas ---------- */
+.topo__barra {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 24px;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 10px;
 }
 
-.periodo__rotulo {
+/* No celular a barra de abas rola de lado, sem quebrar linha */
+.abas {
+  position: relative;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.abas__lista {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.abas__link {
+  position: relative;
+  z-index: 1;
+  display: block;
+  padding: 6px 14px;
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.25s;
+}
+
+.abas__link:hover,
+.abas__link--ativo {
+  color: var(--text);
+}
+
+.abas__link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Fundo da aba ativa: desliza de um link para o outro (posição definida no app.js) */
+.abas__pilula {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: rgb(228 229 231 / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(228 229 231 / 0.06);
+  pointer-events: none;
+  transition: transform 0.35s var(--ease-out), width 0.35s var(--ease-out);
+}
+
+/* Sem JavaScript, todas as seções aparecem uma embaixo da outra */
+.com-abas .aba[hidden] {
+  display: none !important;
+}
+
+.aba {
+  padding-block: 28px 56px;
+}
+
+.aba__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 20px;
+}
+
+.aba__titulo {
+  margin: 0 0 20px;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.aba__titulo:focus {
+  outline: none;
+}
+
+.aba__cabecalho .aba__titulo {
+  margin: 0;
+}
+
+.aba__titulo + .aba__nota {
+  margin: -12px 0 20px;
+}
+
+.aba__nota {
+  margin: 0 0 12px;
+  max-width: 70ch;
   color: var(--text-muted);
   font-size: 0.9rem;
 }
 
+.aba__nota:empty {
+  display: none;
+}
+
+.aba__nota a {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* ---------- Período ---------- */
+.periodo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+
+.periodo--escondido {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.periodo__rotulo {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* ---------- Cartões ---------- */
+.cartao {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  min-width: 0;
+}
+
+.cartao__cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.cartao__titulo {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+}
+
+.cartao__cabecalho .cartao__titulo {
+  margin: 0;
+}
+
+.link-aba {
+  color: var(--accent);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.link-aba:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Resumo ---------- */
 .numeros {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin-block: 16px 32px;
+  margin-bottom: 16px;
 }
 
 .numero {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 16px 18px;
   min-width: 0;
 }
 
 .numero__valor {
   display: block;
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--accent);
+  font-size: 1.35rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+}
+
+/* O total do mês é o número que importa: ganha destaque */
+.numero:first-child {
+  border-color: rgb(79 195 247 / 0.35);
+}
+
+.numero:first-child .numero__valor {
+  color: var(--accent);
+  font-size: 1.7rem;
+  font-weight: 800;
 }
 
 .numero__rotulo {
@@ -160,59 +338,79 @@ body {
   font-size: 0.85rem;
 }
 
-/* ---------- Colunas ---------- */
 .colunas {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
-  gap: 32px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 16px;
   align-items: start;
 }
 
-.bloco {
-  margin-bottom: 36px;
-}
-
-.bloco__cabecalho {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 16px;
-  margin-bottom: 12px;
-}
-
-.bloco__cabecalho .bloco__titulo {
+.ultimos {
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.bloco__titulo {
-  font-size: 1.15rem;
-  margin: 0 0 12px;
+.ultimo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
 }
 
-.bloco__nota {
-  margin: -6px 0 12px;
+.ultimo:last-child {
+  border-bottom: none;
+}
+
+.ultimo__info {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ultimo__info small {
+  display: block;
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 
-.bloco__nota:empty {
-  display: none;
+.ultimo__valor {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
+
+/* ---------- Formulário ao lado da lista ---------- */
+.lado-a-lado {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+/* Orçamento e recorrentes: a lista vem primeiro e o formulário fica à direita */
+.lado-a-lado--invertido {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+}
+
 
 /* ---------- Formulários ---------- */
 .formulario {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
 }
 
-.formulario--editando {
+.cartao:has(.formulario--editando) {
   border-color: var(--accent);
+}
+
+.formulario__nota {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 .rotulo {
@@ -223,30 +421,10 @@ body {
   font-size: 0.85rem;
 }
 
-.rotulo--largo {
-  grid-column: 1 / -1;
-}
-
 .formulario__acoes {
-  grid-column: 1 / -1;
   display: flex;
   gap: 8px;
-}
-
-.linha-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.linha-form .campo {
-  flex: 1 1 90px;
-  min-width: 0;
-}
-
-.linha-form .campo--dia {
-  flex: 0 1 70px;
+  margin-top: 4px;
 }
 
 .campo {
@@ -289,6 +467,7 @@ body {
   font-weight: 600;
   padding: 10px 18px;
   text-decoration: none;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .botao:hover {
@@ -349,9 +528,8 @@ body {
 }
 
 /* ---------- Importação ---------- */
-.bloco__nota a {
-  color: var(--accent);
-  white-space: nowrap;
+.importar {
+  max-width: 640px;
 }
 
 .arquivo {
@@ -407,7 +585,7 @@ body {
 }
 
 .meus-nomes {
-  margin-top: 12px;
+  margin-top: 16px;
   font-size: 0.9rem;
 }
 
@@ -430,7 +608,7 @@ body {
   align-items: center;
   gap: 6px;
   padding: 4px 6px 4px 12px;
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 999px;
 }
@@ -650,6 +828,7 @@ body {
   position: fixed;
   bottom: 20px;
   left: 50%;
+  z-index: 20;
   transform: translateX(-50%);
   max-width: calc(100% - 32px);
   background: var(--surface-hover);
@@ -765,9 +944,35 @@ body {
 
 /* ---------- Telas menores ---------- */
 @media (max-width: 860px) {
-  .colunas {
+  .colunas,
+  .lado-a-lado,
+  .lado-a-lado--invertido {
     grid-template-columns: minmax(0, 1fr);
-    gap: 0;
+  }
+
+  .numeros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  /* O período desce para uma linha própria, embaixo das abas */
+  .topo__barra {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .periodo--escondido {
+    display: none;
+  }
+
+  .periodo .campo {
+    flex: 1;
+  }
+
+  html {
+    scroll-padding-top: 170px;
   }
 }
 
@@ -784,12 +989,18 @@ body {
     max-width: 150px;
   }
 
-  .numeros {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .numero__valor,
+  .numero:first-child .numero__valor {
+    font-size: 1.2rem;
   }
 
-  .numero__valor {
-    font-size: 1.2rem;
+  .aba__titulo {
+    font-size: 1.35rem;
+  }
+
+  .abas__link {
+    padding: 6px 12px;
+    font-size: 0.9rem;
   }
 
   /* No celular, cada gasto vira um cartão: descrição e valor em cima, o resto embaixo */
@@ -823,4 +1034,134 @@ body {
   .tabela--previa .tabela__categoria { grid-row: 3; }
   .tabela--previa .campo { max-width: none; }
   .tabela--previa .tabela__marcar { grid-column: 2; grid-row: 2 / 4; align-self: end; justify-self: end; }
+}
+
+/* ---------- Animações (as mesmas do portfólio) ---------- */
+
+/* Entrada das abas: cada bloco sobe 10px e aparece; o título em 0,1s,
+   o conteúdo principal em 0,3s e o resto em 0,5s (data-grupo 0, 1 e 2).
+   Usa "translate" e não "transform" para não brigar com outros efeitos. */
+.com-abas .reveal {
+  opacity: 0;
+}
+
+.aba--entrando .reveal {
+  animation: surgir 0.5s var(--ease-texto) calc(0.1s + var(--grupo, 0) * 0.2s) both;
+}
+
+.reveal[data-grupo="0"] { --grupo: 0; }
+.reveal[data-grupo="1"] { --grupo: 1; }
+.reveal[data-grupo="2"] { --grupo: 2; }
+
+@keyframes surgir {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* As barras crescem da esquerda quando a aba aparece (não a cada recarga) */
+.animar-barras .trilho__cheio {
+  transform-origin: left;
+  animation: crescer 0.7s var(--ease-out) 0.35s both;
+}
+
+@keyframes crescer {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Saída da aba anterior: some num fade rápido */
+.aba--saindo {
+  animation: sair 0.15s ease-out both;
+}
+
+@keyframes sair {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Brilho que segue o mouse (.spot; posição em --mx/--my, definida no app.js):
+   uma luz suave no fundo e outra acendendo a borda perto do cursor */
+.spot {
+  position: relative;
+  isolation: isolate;
+}
+
+.spot::before,
+.spot::after {
+  content: "";
+  position: absolute;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s;
+}
+
+.spot::before {
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    380px circle at var(--mx, 50%) var(--my, 50%),
+    rgb(79 195 247 / 0.07),
+    transparent 60%
+  );
+}
+
+.spot::after {
+  inset: -1px;
+  padding: 1px;
+  background: radial-gradient(
+    220px circle at var(--mx, 50%) var(--my, 50%),
+    rgb(79 195 247 / 0.55),
+    transparent 70%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+@media (hover: hover) {
+  .spot:hover::before,
+  .spot:hover::after {
+    opacity: 1;
+  }
+}
+
+/* Respeita quem prefere menos animação (ex.: "Efeitos de animação" desligado no
+   Windows): nada se desloca nem cresce, mas a troca de abas mantém um fade simples */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .com-abas .reveal {
+    opacity: 1;
+  }
+
+  .aba--entrando .reveal {
+    animation: aparecer 0.5s ease-out calc(0.1s + var(--grupo, 0) * 0.2s) both !important;
+  }
+
+  .aba--saindo {
+    animation: sair 0.15s ease-out both !important;
+  }
 }

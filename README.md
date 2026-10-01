@@ -170,9 +170,9 @@ Orçamento de mercado em set/2026: R$ 420,00 de R$ 500,00 (84%) - ATENÇÃO: sob
 
 ## Versão web
 
-![Versão web do controle de gastos: resumo do mês, formulário, lista de gastos, gráfico por categoria, importação de extratos, orçamento e recorrentes](docs/web.png)
+![Aba Resumo da versão web: total do mês em destaque, gráfico por categoria e últimos gastos](docs/web.png)
 
-> Print com dados de exemplo.
+> Print com dados de exemplo. A página tem 5 abas (Resumo, Gastos, Orçamento, Recorrentes e Importar), cada uma com seu endereço (`/#gastos`, por exemplo), com as mesmas animações do [portfólio](https://lakes777.github.io).
 
 ```bash
 python -m venv .venv
