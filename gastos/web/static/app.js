@@ -347,11 +347,25 @@ async function salvarGasto(evento) {
   }
 }
 
+// A API manda o aviso como o terminal mostra ("ATENÇÃO: sobram R$ 27,70"): lá a caixa alta
+// destaca a linha. Na página a cor já destaca, então o texto vai em frase normal, montado
+// aqui a partir do nível e do restante (a API continua igual para quem a usa).
+function textoDoAviso(situacao) {
+  const restante = Number(situacao.restante);
+  if (situacao.nivel === "estourou") return `Estourou em ${formatarReais(-restante)}`;
+  if (situacao.nivel === "atencao") return `Atenção, sobram ${formatarReais(restante)}`;
+  return `Sobram ${formatarReais(restante)}`;
+}
+
+function minusculaNoComeco(texto) {
+  return texto[0].toLowerCase() + texto.slice(1);
+}
+
 // Igual ao terminal: depois de salvar, avisa se o orçamento da categoria está perto ou estourou.
 async function avisoDeOrcamento(gasto) {
   const situacoes = await api(`/orcamentos?mes=${gasto.data.slice(0, 7)}`);
   const situacao = situacoes.find((s) => s.categoria === gasto.categoria);
-  return situacao && situacao.nivel !== "ok" ? ` Orçamento: ${situacao.aviso}.` : "";
+  return situacao && situacao.nivel !== "ok" ? ` Orçamento: ${minusculaNoComeco(textoDoAviso(situacao))}.` : "";
 }
 
 // ---------- Orçamento ----------
@@ -382,7 +396,7 @@ function desenharOrcamentos(situacoes, mes) {
         ),
         el("div", { class: "trilho", "aria-hidden": "true" }, cheio),
         el("div", { class: "orcamento__rodape" },
-          el("span", { class: "orcamento__aviso", text: s.aviso }),
+          el("span", { class: "orcamento__aviso", text: textoDoAviso(s) }),
           remover,
         ),
       );
