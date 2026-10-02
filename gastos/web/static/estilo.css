@@ -592,12 +592,19 @@ select:focus-visible {
 .exportar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
-.exportar__rotulo {
+.exportar__rotulo,
+.exportar__motivo {
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+.exportar__motivo {
+  font-style: italic;
+  margin-right: 4px;
 }
 
 /* ---------- Importação ---------- */
@@ -1089,6 +1096,12 @@ select:focus-visible {
 
   #botao-conta {
     max-width: 150px;
+  }
+
+  /* O motivo de os botões de baixar estarem desativados desce para uma linha própria */
+  .exportar__motivo {
+    order: 1;
+    flex-basis: 100%;
   }
 
   .numero__valor,

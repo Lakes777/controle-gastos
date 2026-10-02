@@ -917,21 +917,23 @@ async function recarregar() {
 }
 
 // Sem gastos no período, os botões de baixar ficam desativados (baixariam uma planilha vazia).
-// Um link não tem "disabled": sem href ele não baixa nada, e o aria-disabled e o title explicam.
+// Um link não tem "disabled": sem href ele não baixa nada. O motivo aparece escrito ao lado
+// de "Baixar:" (visível também no celular) e é ligado aos links pelo aria-describedby.
 function atualizarExportar(temGastos) {
+  $("#exportar-motivo").hidden = temGastos;
   for (const formato of ["xlsx", "csv"]) {
     const link = $(`#exportar-${formato}`);
     link.classList.toggle("botao--desativado", !temGastos);
     if (temGastos) {
       link.href = `/exportar?formato=${formato}${filtroMes().replace("?", "&")}`;
       link.removeAttribute("aria-disabled");
-      link.removeAttribute("title");
+      link.removeAttribute("aria-describedby");
       link.removeAttribute("tabindex");
       link.removeAttribute("role");
     } else {
       link.removeAttribute("href");
       link.setAttribute("aria-disabled", "true");
-      link.setAttribute("title", "Nenhum gasto no período para baixar");
+      link.setAttribute("aria-describedby", "exportar-motivo");
       // Continua alcançável pelo teclado, para o leitor de tela anunciar o motivo
       link.setAttribute("tabindex", "0");
       link.setAttribute("role", "link");

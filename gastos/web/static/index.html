@@ -80,8 +80,13 @@
         <h2 class="aba__titulo" id="titulo-gastos" tabindex="-1">Gastos</h2>
         <div class="exportar">
           <span class="exportar__rotulo">Baixar:</span>
-          <a class="botao botao--pequeno botao--fantasma" id="exportar-xlsx" download>Excel (.xlsx)</a>
-          <a class="botao botao--pequeno botao--fantasma" id="exportar-csv" download>CSV</a>
+          <!-- Começam desativados: o app.js ativa quando há gastos no período
+               (se a primeira carga falhar, não parecem clicáveis à toa) -->
+          <span class="exportar__motivo" id="exportar-motivo">nenhum gasto no período</span>
+          <a class="botao botao--pequeno botao--fantasma botao--desativado" id="exportar-xlsx" download
+             role="link" tabindex="0" aria-disabled="true" aria-describedby="exportar-motivo">Excel (.xlsx)</a>
+          <a class="botao botao--pequeno botao--fantasma botao--desativado" id="exportar-csv" download
+             role="link" tabindex="0" aria-disabled="true" aria-describedby="exportar-motivo">CSV</a>
         </div>
       </div>
 
