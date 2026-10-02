@@ -290,7 +290,6 @@ select:focus-visible {
   background: rgb(22 23 26 / 0.82);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  backdrop-filter: blur(4px);
   transition: transform 0.25s var(--ease-out), border-color 0.25s;
 }
 

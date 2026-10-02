@@ -791,6 +791,11 @@ function iniciarConta() {
     location.hash = "resumo";
     abrirJanelaEntrar();
   });
+  // Fechando a janela sem entrar (Esc), o foco voltaria ao botão do lobby, que já sumiu:
+  // vai para o título da aba aberta, e o teclado e o leitor de tela não ficam perdidos
+  $("#janela-entrar").addEventListener("close", () => {
+    if (document.activeElement === document.body) $("#resumo .aba__titulo")?.focus();
+  });
   $("#botao-conta").addEventListener("click", () => {
     $("#form-excluir").reset();
     $("#erro-excluir").hidden = true;
@@ -846,11 +851,16 @@ const PRANCHAS = ["barras", "rosca", "recibo", "moedas", "cartao", "calendario"]
 function montarFundo() {
   const fundo = $("#lobby-fundo");
   if (fundo.childElementCount) return;
+  // Cada metade do trilho precisa ser mais larga que a tela, senão abre um vão no fim
+  // da volta em monitores largos (2560 px, ultrawide, zoom reduzido): o conjunto de
+  // 6 pranchas tem ~2300 px, então repete quantas vezes a tela pedir
+  const repeticoes = Math.max(1, Math.ceil(Math.max(screen.width, innerWidth) / 2200));
   for (let f = 0; f < 3; f++) {
     // Cada faixa começa numa prancha diferente, para as três não andarem iguais
     const ordem = PRANCHAS.map((_, i) => PRANCHAS[(i + f * 2) % PRANCHAS.length]);
+    const metade = Array.from({ length: repeticoes }, () => ordem).flat();
     const trilho = el("div", { class: "faixa__trilho" });
-    for (const nome of [...ordem, ...ordem]) {
+    for (const nome of [...metade, ...metade]) {
       trilho.append(el("img", {
         class: "prancha", src: `/static/pranchas/${nome}.svg`, alt: "", "aria-hidden": "true",
         width: "520", height: "300", decoding: "async", draggable: "false",

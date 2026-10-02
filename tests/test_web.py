@@ -1,3 +1,4 @@
+import re
 import io
 import zipfile
 from datetime import date
@@ -329,7 +330,9 @@ def test_lobby_abre_na_raiz_sem_login(cliente):
     html = pagina.text
     assert 'id="lobby"' in html
     # O botão principal leva às abas, e o código fica a um clique
-    assert 'id="lobby-comecar"' in html and 'href="#resumo"' in html
+    assert 'href="#resumo" id="lobby-comecar"' in html
+    # "Entrar na minha conta" só aparece pelo JavaScript, na versão online sem login
+    assert re.search(r'<button[^>]*id="lobby-entrar"[^>]*\bhidden\b', html)
     assert "https://github.com/Lakes777/controle-gastos" in html
     # O nome no topo do app volta para o lobby
     assert 'id="link-lobby" href="/"' in html or 'href="/" id="link-lobby"' in html

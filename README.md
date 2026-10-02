@@ -330,6 +330,7 @@ controle-gastos/
 - [x] Lembrar a categoria já usada na mesma loja ao importar
 - [ ] Conferir o OFX de outros bancos (Itaú, Nubank) com arquivos reais (e se as descrições deles dizem a loja)
 - [x] Versão web com API REST (FastAPI)
+- [x] Página inicial (lobby) com desenhos de finanças deslizando ao fundo
 - [x] Colocar a versão web no ar (Vercel)
 - [x] Contas de usuário com login
 - [x] Importar o CSV do Nubank pela página, com prévia e categorias editáveis
