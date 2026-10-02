@@ -34,7 +34,7 @@ def criar_app(
     if autenticacao is not None and demo is None:
         raise ValueError("O login só existe na versão online (com a demonstração)")
     app = FastAPI(
-        title="Controle de Gastos",
+        title="Spendwise",
         description="Registre seus gastos, acompanhe o orçamento do mês e exporte para o Excel.",
         version="0.1.0",
     )

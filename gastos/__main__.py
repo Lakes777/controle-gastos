@@ -377,7 +377,7 @@ def cmd_recorrente(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="gastos", description="Controle de gastos pessoais no terminal."
+        prog="gastos", description="Spendwise · controle de gastos pessoais no terminal."
     )
     subparsers = parser.add_subparsers(dest="comando", required=True)
 

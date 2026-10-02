@@ -1,4 +1,4 @@
-// Front do Controle de Gastos: conversa com a própria API usando fetch().
+// Front do Spendwise: conversa com a própria API usando fetch().
 // Todo texto vindo da API entra na página com textContent, que não interpreta HTML,
 // então uma descrição como "<script>..." aparece como texto e não é executada.
 
@@ -915,7 +915,7 @@ function mostrarAba(focar) {
     $("#topo-nome").setAttribute("aria-level", "1");
   }
   const titulo = noLobby ? $("#lobby-titulo") : atual.querySelector(".aba__titulo");
-  document.title = noLobby ? "Controle de Gastos" : `${titulo.textContent} | Controle de Gastos`;
+  document.title = noLobby ? "Spendwise" : `${titulo.textContent} | Controle de Gastos`;
 
   // O que está na tela agora (o topo com o menu fica sempre): o lobby ou a aba aberta
   const estavaNoLobby = raiz.classList.contains("em-lobby");

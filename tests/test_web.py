@@ -301,7 +301,7 @@ def test_saude(cliente):
 def test_pagina_inicial_e_arquivos_do_front(cliente):
     pagina = cliente.get("/")
     assert pagina.status_code == 200
-    assert "Controle de Gastos" in pagina.text
+    assert "Spendwise" in pagina.text
     for arquivo in ["app.js", "estilo.css"]:
         assert cliente.get(f"/static/{arquivo}").status_code == 200
 
