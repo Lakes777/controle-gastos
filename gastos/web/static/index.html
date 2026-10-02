@@ -263,7 +263,13 @@
   <dialog class="janela" id="janela-entrar" aria-labelledby="titulo-entrar">
     <div class="janela__topo">
       <h2 class="janela__titulo" id="titulo-entrar">Entrar</h2>
-      <button class="botao-texto" type="button" data-fechar aria-label="Fechar">Fechar</button>
+      <button class="botao-icone" type="button" data-fechar aria-label="Fechar" title="Fechar">
+        <!-- Ícone "x" da Lucide (lucide.dev, licença ISC) -->
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+        </svg>
+      </button>
     </div>
     <div class="abas-janela" id="abas-janela" role="tablist">
       <button class="aba-janela aba-janela--ativa" type="button" data-modo="entrar" role="tab">Entrar</button>
@@ -292,10 +298,16 @@
   <dialog class="janela" id="janela-conta" aria-labelledby="titulo-conta">
     <div class="janela__topo">
       <h2 class="janela__titulo" id="titulo-conta">Sua conta</h2>
-      <button class="botao-texto" type="button" data-fechar aria-label="Fechar">Fechar</button>
+      <button class="botao-icone" type="button" data-fechar aria-label="Fechar" title="Fechar">
+        <!-- Ícone "x" da Lucide (lucide.dev, licença ISC) -->
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+        </svg>
+      </button>
     </div>
     <p class="janela__nota">Conectado como <strong id="conta-email"></strong>.</p>
-    <button class="botao" type="button" id="botao-sair">Sair</button>
+    <button class="botao botao--fantasma botao--largo" type="button" id="botao-sair">Sair</button>
     <details class="janela__perigo">
       <summary>Excluir minha conta</summary>
       <form class="janela__form" id="form-excluir" novalidate>

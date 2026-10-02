@@ -523,6 +523,13 @@ select:focus-visible {
   background: transparent;
 }
 
+/* Ocupa a largura toda, como os botões dos formulários das janelas */
+.botao--largo {
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
 .botao--pequeno {
   font-size: 0.85rem;
   padding: 6px 12px;
@@ -539,25 +546,7 @@ select:focus-visible {
   border-color: var(--border);
 }
 
-.botao-texto {
-  background: none;
-  border: none;
-  color: var(--accent);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.85rem;
-  padding: 2px 4px;
-}
-
-.botao-texto:hover {
-  text-decoration: underline;
-}
-
-.botao-texto--perigo {
-  color: var(--perigo);
-}
-
-/* Botões só com ícone (editar e remover) */
+/* Botões só com ícone (editar, remover e fechar as janelas) */
 .botao-icone {
   display: inline-grid;
   place-items: center;
@@ -971,6 +960,11 @@ select:focus-visible {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+/* O X de fechar encosta no canto, alinhado com a borda dos campos */
+.janela__topo .botao-icone {
+  margin-right: -6px;
 }
 
 .janela__titulo {
