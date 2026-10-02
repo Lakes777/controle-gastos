@@ -354,7 +354,8 @@ function textoDoAviso(situacao) {
   const restante = Number(situacao.restante);
   if (situacao.nivel === "estourou") return `Estourou em ${formatarReais(-restante)}`;
   if (situacao.nivel === "atencao") return `Atenção, sobram ${formatarReais(restante)}`;
-  return `Sobram ${formatarReais(restante)}`;
+  if (situacao.nivel === "ok") return `Sobram ${formatarReais(restante)}`;
+  return situacao.aviso; // nível que a página não conhece: usa o texto da API como veio
 }
 
 function minusculaNoComeco(texto) {
