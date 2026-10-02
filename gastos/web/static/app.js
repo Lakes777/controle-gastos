@@ -220,8 +220,8 @@ function desenharGastos(gastos) {
   $("#tabela").hidden = vazio;
   if (vazio) {
     aviso.textContent = estado.mes
-      ? `Nenhum gasto em ${nomeDoMes(estado.mes)}. Adicione o primeiro no formulário.`
-      : "Nenhum gasto registrado ainda. Adicione o primeiro no formulário.";
+      ? `Nenhum gasto em ${nomeDoMes(estado.mes)}. Adicione o primeiro pelo formulário Novo gasto.`
+      : "Nenhum gasto registrado ainda. Adicione o primeiro pelo formulário Novo gasto.";
     return;
   }
   // A API devolve em ordem cronológica; na tela, o mais recente vem primeiro.
@@ -376,7 +376,7 @@ function desenharOrcamentos(situacoes, mes) {
     : `Mostrando ${nomeDoMes(mes)} (o orçamento é sempre de um mês).`;
   if (!situacoes.length) {
     $("#orcamentos").replaceChildren(
-      el("p", { class: "aviso", text: "Nenhum limite ainda. Defina o primeiro no formulário." }),
+      el("p", { class: "aviso", text: "Nenhum limite ainda. Defina o primeiro pelo formulário Definir limite." }),
     );
     return;
   }
