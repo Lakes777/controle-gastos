@@ -512,9 +512,15 @@ select:focus-visible {
   color: var(--text);
 }
 
-.botao:disabled {
+.botao:disabled,
+.botao--desativado {
   opacity: 0.5;
-  cursor: default;
+  cursor: not-allowed;
+}
+
+/* O hover não "acende" um botão desativado */
+.botao--fantasma.botao--desativado:hover {
+  background: transparent;
 }
 
 .botao--pequeno {

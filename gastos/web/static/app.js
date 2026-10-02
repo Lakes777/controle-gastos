@@ -898,8 +898,30 @@ async function recarregar() {
   desenharRecorrentes(recorrentes);
   desenharMeusNomes(meusNomes);
   $("#lista-categorias").replaceChildren(...categorias.map((c) => el("option", { value: c })));
-  $("#exportar-xlsx").href = `/exportar?formato=xlsx${filtroMes().replace("?", "&")}`;
-  $("#exportar-csv").href = `/exportar?formato=csv${filtroMes().replace("?", "&")}`;
+  atualizarExportar(gastos.length > 0);
+}
+
+// Sem gastos no período, os botões de baixar ficam desativados (baixariam uma planilha vazia).
+// Um link não tem "disabled": sem href ele não baixa nada, e o aria-disabled e o title explicam.
+function atualizarExportar(temGastos) {
+  for (const formato of ["xlsx", "csv"]) {
+    const link = $(`#exportar-${formato}`);
+    link.classList.toggle("botao--desativado", !temGastos);
+    if (temGastos) {
+      link.href = `/exportar?formato=${formato}${filtroMes().replace("?", "&")}`;
+      link.removeAttribute("aria-disabled");
+      link.removeAttribute("title");
+      link.removeAttribute("tabindex");
+      link.removeAttribute("role");
+    } else {
+      link.removeAttribute("href");
+      link.setAttribute("aria-disabled", "true");
+      link.setAttribute("title", "Nenhum gasto no período para baixar");
+      // Continua alcançável pelo teclado, para o leitor de tela anunciar o motivo
+      link.setAttribute("tabindex", "0");
+      link.setAttribute("role", "link");
+    }
+  }
 }
 
 function iniciar() {
