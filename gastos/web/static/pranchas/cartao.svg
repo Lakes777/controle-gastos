@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" fill="none" stroke="#c9ccd2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" font-family="Fira Code, monospace">
+<!-- Prancha 5 do lobby: fatura do cartão (desenho próprio do projeto) -->
+<rect x="6" y="6" width="508" height="288" rx="4" stroke-width="1"/>
+<path d="M6 22h16M22 6v16M514 278h-16M498 294v-16" stroke-width="1"/>
+<rect x="80" y="40" width="300" height="189" rx="14"/>
+<rect x="110" y="88" width="44" height="34" rx="5"/>
+<path d="M110 105h44M132 88v34M110 96h12M110 114h12M142 96h12M142 114h12" stroke-width="1"/>
+<path d="M176 97a8 8 0 0 1 0 16" stroke-width="1.2"/>
+<path d="M182 91a14 14 0 0 1 0 28" stroke-width="1.2"/>
+<path d="M188 85a20 20 0 0 1 0 40" stroke-width="1.2"/>
+<circle cx="112" cy="160" r="2.6"/>
+<circle cx="123" cy="160" r="2.6"/>
+<circle cx="134" cy="160" r="2.6"/>
+<circle cx="145" cy="160" r="2.6"/>
+<circle cx="174" cy="160" r="2.6"/>
+<circle cx="185" cy="160" r="2.6"/>
+<circle cx="196" cy="160" r="2.6"/>
+<circle cx="207" cy="160" r="2.6"/>
+<circle cx="236" cy="160" r="2.6"/>
+<circle cx="247" cy="160" r="2.6"/>
+<circle cx="258" cy="160" r="2.6"/>
+<circle cx="269" cy="160" r="2.6"/>
+<text x="298" y="165" fill="#c9ccd2" stroke="none" font-size="15" text-anchor="start">4821</text>
+<path d="M110 200h96" stroke-width="1"/><path d="M226 200h30" stroke-width="1"/>
+<text x="110" y="194" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">TITULAR</text>
+<text x="226" y="194" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">09/29</text>
+<circle cx="322" cy="198" r="15"/>
+<circle cx="342" cy="198" r="15" stroke="#4fc3f7"/>
+<path d="M80 252v-8M380 252v-8M80 248h300" stroke-width="1"/>
+<path d="M80 248l8 -3M80 248l8 3M380 248l-8 -3M380 248l-8 3" stroke-width="1"/>
+<text x="230" y="262" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle">85,6 mm</text>
+<path d="M400 60h90M400 60v60" stroke-width="1"/>
+<text x="408" y="80" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">fecha dia 03</text>
+<text x="408" y="98" fill="#4fc3f7" stroke="none" font-size="9" text-anchor="start">vence dia 10</text>
+<text x="408" y="116" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">limite 70%</text>
+<path d="M408 132h80" stroke-width="3" opacity=".35"/><path d="M408 132h56" stroke="#4fc3f7" stroke-width="3"/>
+<g fill="#c9ccd2" stroke="none" font-size="10" letter-spacing="1"><text x="30" y="284">FIG. 05</text><text x="490" y="284" text-anchor="end">FATURA DO CARTÃO</text></g>
+</svg>

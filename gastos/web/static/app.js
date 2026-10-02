@@ -695,6 +695,18 @@ async function atualizarSessao() {
     $("#botao-conta").textContent = info.email;
     $("#conta-email").textContent = info.email;
   }
+  // No lobby: o Começar abre a demonstração (visitante), a conta (logado) ou os dados
+  // do computador (uso pessoal); quem está na demonstração também pode entrar na conta.
+  $("#lobby-entrar").hidden = !info.demo;
+  const nota = $("#lobby-nota");
+  if (info.email) {
+    nota.replaceChildren("Conectado como ", el("strong", { text: info.email }), ".");
+  } else if (info.demo) {
+    nota.textContent = "Sem conta, você usa a demonstração: dados de exemplo, só seus.";
+  } else {
+    nota.textContent = "Seus gastos ficam neste computador, no mesmo banco da linha de comando.";
+  }
+  nota.hidden = false;
 }
 
 function trocarModo(modo) {
@@ -773,6 +785,12 @@ async function excluirConta(evento) {
 
 function iniciarConta() {
   $("#botao-entrar").addEventListener("click", abrirJanelaEntrar);
+  // Do lobby, vai para as abas e já abre a janela: depois de entrar, a página recarrega
+  // no mesmo endereço (#resumo) e mostra os dados da conta, sem voltar ao lobby.
+  $("#lobby-entrar").addEventListener("click", () => {
+    location.hash = "resumo";
+    abrirJanelaEntrar();
+  });
   $("#botao-conta").addEventListener("click", () => {
     $("#form-excluir").reset();
     $("#erro-excluir").hidden = true;
@@ -816,67 +834,135 @@ function moverPilula() {
   pilula.style.transform = `translateX(${ativo.offsetLeft}px)`;
 }
 
+// ---------- Lobby (a tela de entrada, no endereço sem hash) ----------
+
+const lobby = $("#lobby");
+const raiz = document.documentElement;
+const PRANCHAS = ["barras", "rosca", "recibo", "moedas", "cartao", "calendario"];
+
+// Fundo do lobby: três faixas com as pranchas repetidas duas vezes (o CSS anda metade do
+// trilho e recomeça sem emenda). As imagens só entram quando o lobby aparece; quem abre
+// direto numa aba nem baixa os desenhos.
+function montarFundo() {
+  const fundo = $("#lobby-fundo");
+  if (fundo.childElementCount) return;
+  for (let f = 0; f < 3; f++) {
+    // Cada faixa começa numa prancha diferente, para as três não andarem iguais
+    const ordem = PRANCHAS.map((_, i) => PRANCHAS[(i + f * 2) % PRANCHAS.length]);
+    const trilho = el("div", { class: "faixa__trilho" });
+    for (const nome of [...ordem, ...ordem]) {
+      trilho.append(el("img", {
+        class: "prancha", src: `/static/pranchas/${nome}.svg`, alt: "", "aria-hidden": "true",
+        width: "520", height: "300", decoding: "async", draggable: "false",
+      }));
+    }
+    fundo.append(el("div", { class: "faixa" }, trilho));
+  }
+}
+
+// O nome no topo volta ao lobby sem recarregar a página (o endereço fica sem hash)
+function irParaLobby(evento) {
+  if (evento.ctrlKey || evento.metaKey || evento.shiftKey || evento.button !== 0) return;
+  evento.preventDefault();
+  if (!location.hash) return;
+  history.pushState(null, "", location.pathname + location.search);
+  mostrarAba(true);
+}
+
+// ---------- Troca de tela: lobby ou uma das abas, escolhida pelo endereço ----------
+
+let vistaAtual = null; // "lobby" ou o id da aba à mostra (ou a caminho)
+
 function mostrarAba(focar) {
   // Os ids das abas são simples (sem acento nem espaço): o hash é comparado como veio,
   // sem decodeURIComponent, que quebraria a página com um endereço como "#%".
   const id = location.hash.slice(1);
-  const atual = abas.find((aba) => aba.id === id) ?? abas[0];
+  const noLobby = id === "";
+  const atual = noLobby ? lobby : abas.find((aba) => aba.id === id) ?? abas[0];
+  const vista = noLobby ? "lobby" : atual.id;
+  // Voltar no navegador dispara popstate e hashchange: a segunda chamada não faz nada
+  if (vista === vistaAtual) return;
+  vistaAtual = vista;
 
-  linksAbas.forEach((link) => {
-    const ativo = link.getAttribute("href") === `#${atual.id}`;
-    link.classList.toggle("abas__link--ativo", ativo);
-    if (ativo) {
-      link.setAttribute("aria-current", "page");
-      // No celular a barra rola de lado: traz a aba escolhida para a vista.
-      link.scrollIntoView({ block: "nearest", inline: "nearest" });
-    } else {
-      link.removeAttribute("aria-current");
-    }
-  });
-  moverPilula();
-  $("#periodo").classList.toggle("periodo--escondido", ABAS_SEM_PERIODO.includes(atual.id));
-  const titulo = atual.querySelector(".aba__titulo");
-  document.title = `${titulo.textContent} | Controle de Gastos`;
+  if (!noLobby) {
+    linksAbas.forEach((link) => {
+      const ativo = link.getAttribute("href") === `#${atual.id}`;
+      link.classList.toggle("abas__link--ativo", ativo);
+      if (ativo) link.setAttribute("aria-current", "page");
+      else link.removeAttribute("aria-current");
+    });
+    $("#periodo").classList.toggle("periodo--escondido", ABAS_SEM_PERIODO.includes(atual.id));
+  }
+  const titulo = noLobby ? $("#lobby-titulo") : atual.querySelector(".aba__titulo");
+  document.title = noLobby ? "Controle de Gastos" : `${titulo.textContent} | Controle de Gastos`;
 
-  const anterior = abasIniciadas && abas.find((aba) => !aba.hidden && aba !== atual);
+  // O que está na tela agora: o lobby, ou o topo e a aba aberta
+  const estavaNoLobby = raiz.classList.contains("em-lobby");
+  let anteriores = [];
+  if (abasIniciadas) {
+    if (estavaNoLobby) anteriores = noLobby ? [] : [lobby];
+    else if (noLobby) anteriores = [$(".topo"), $("main")];
+    else anteriores = abas.filter((aba) => !aba.hidden && aba !== atual);
+  }
   const estaTroca = ++trocaAtual;
+  const primeiraVez = !abasIniciadas;
   abasIniciadas = true;
 
   function entrar() {
     if (estaTroca !== trocaAtual) return;
-    abas.forEach((aba) => {
-      aba.hidden = aba !== atual;
-      aba.classList.remove("aba--saindo");
-    });
+    for (const tela of [lobby, $(".topo"), $("main"), ...abas]) tela.classList.remove("aba--saindo");
+    raiz.classList.toggle("em-lobby", noLobby);
+    if (noLobby) {
+      montarFundo();
+    } else {
+      abas.forEach((aba) => {
+        aba.hidden = aba !== atual;
+      });
+      // Na primeira vez, ou vindo do lobby (o topo acabou de aparecer), a pílula já nasce
+      // no lugar, sem deslizar a partir do canto
+      if (primeiraVez || estavaNoLobby) pilulaNoLugar();
+      else moverPilula();
+      // No celular a barra rola de lado: traz a aba escolhida para a vista.
+      document.querySelector(".abas__link--ativo")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+      atual.classList.add("animar-barras");
+      setTimeout(() => atual.classList.remove("animar-barras"), 1200);
+    }
     atual.classList.remove("aba--entrando");
     void atual.offsetWidth; // força o navegador a reiniciar a animação
     atual.classList.add("aba--entrando");
-    atual.classList.add("animar-barras");
-    setTimeout(() => atual.classList.remove("animar-barras"), 1200);
     window.scrollTo({ top: 0, behavior: "instant" });
     if (focar) titulo.focus({ preventScroll: true });
   }
 
-  // A aba anterior some rapidinho antes da nova entrar
-  if (anterior) {
-    anterior.classList.add("aba--saindo");
+  // A tela anterior some rapidinho antes da nova entrar
+  if (anteriores.length) {
+    anteriores.forEach((tela) => tela.classList.add("aba--saindo"));
     setTimeout(entrar, 150);
   } else {
     entrar();
   }
 }
 
+// Põe a pílula embaixo da aba ativa sem deslizar (na primeira vez e ao sair do lobby)
+function pilulaNoLugar() {
+  pilula.style.transition = "none";
+  moverPilula();
+  void pilula.offsetWidth;
+  pilula.style.transition = "";
+}
+
 function iniciarAbas() {
-  document.documentElement.classList.add("com-abas");
+  raiz.classList.add("com-abas");
   window.addEventListener("hashchange", () => mostrarAba(true));
+  window.addEventListener("popstate", () => mostrarAba(true));
   window.addEventListener("resize", moverPilula);
   barraAbas.addEventListener("scroll", marcarPontasDasAbas, { passive: true });
   document.fonts.ready.then(moverPilula);
-  // Na primeira vez a pílula já nasce no lugar, sem deslizar a partir do canto
-  pilula.style.transition = "none";
+  $("#link-lobby").addEventListener("click", irParaLobby);
+  // Com a aba do navegador escondida, as faixas do lobby param de andar
+  document.addEventListener("visibilitychange", () =>
+    lobby.classList.toggle("lobby--pausado", document.hidden));
   mostrarAba(false);
-  void pilula.offsetWidth;
-  pilula.style.transition = "";
 }
 
 // Brilho que segue o mouse nos cartões (.spot). Um ouvinte só, na página toda,

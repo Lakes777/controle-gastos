@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" fill="none" stroke="#c9ccd2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" font-family="Fira Code, monospace">
+<!-- Prancha 4 do lobby: economia do mês (desenho próprio do projeto) -->
+<rect x="6" y="6" width="508" height="288" rx="4" stroke-width="1"/>
+<path d="M6 22h16M22 6v16M514 278h-16M498 294v-16" stroke-width="1"/>
+<path d="M74 250V226M146 250V226"/>
+<path d="M74 250A36 10 0 0 0 146 250" stroke-width="1.2"/>
+<path d="M74 238A36 10 0 0 0 146 238" stroke-width="1.2"/>
+<ellipse cx="110" cy="226" rx="36" ry="10"/>
+<ellipse cx="110" cy="226" rx="24" ry="6" stroke-width="1"/>
+<path d="M174 250V202M246 250V202"/>
+<path d="M174 250A36 10 0 0 0 246 250" stroke-width="1.2"/>
+<path d="M174 238A36 10 0 0 0 246 238" stroke-width="1.2"/>
+<path d="M174 226A36 10 0 0 0 246 226" stroke-width="1.2"/>
+<path d="M174 214A36 10 0 0 0 246 214" stroke-width="1.2"/>
+<ellipse cx="210" cy="202" rx="36" ry="10"/>
+<ellipse cx="210" cy="202" rx="24" ry="6" stroke-width="1"/>
+<path d="M274 250V178M346 250V178"/>
+<path d="M274 250A36 10 0 0 0 346 250" stroke-width="1.2"/>
+<path d="M274 238A36 10 0 0 0 346 238" stroke-width="1.2"/>
+<path d="M274 226A36 10 0 0 0 346 226" stroke-width="1.2"/>
+<path d="M274 214A36 10 0 0 0 346 214" stroke-width="1.2"/>
+<path d="M274 202A36 10 0 0 0 346 202" stroke-width="1.2"/>
+<path d="M274 190A36 10 0 0 0 346 190" stroke-width="1.2"/>
+<ellipse cx="310" cy="178" rx="36" ry="10"/>
+<ellipse cx="310" cy="178" rx="24" ry="6" stroke-width="1"/>
+<path d="M374 250V142M446 250V142"/>
+<path d="M374 250A36 10 0 0 0 446 250" stroke-width="1.2"/>
+<path d="M374 238A36 10 0 0 0 446 238" stroke-width="1.2"/>
+<path d="M374 226A36 10 0 0 0 446 226" stroke-width="1.2"/>
+<path d="M374 214A36 10 0 0 0 446 214" stroke-width="1.2"/>
+<path d="M374 202A36 10 0 0 0 446 202" stroke-width="1.2"/>
+<path d="M374 190A36 10 0 0 0 446 190" stroke-width="1.2"/>
+<path d="M374 178A36 10 0 0 0 446 178" stroke-width="1.2"/>
+<path d="M374 166A36 10 0 0 0 446 166" stroke-width="1.2"/>
+<path d="M374 154A36 10 0 0 0 446 154" stroke-width="1.2"/>
+<ellipse cx="410" cy="142" rx="36" ry="10" stroke="#4fc3f7"/>
+<ellipse cx="410" cy="142" rx="24" ry="6" stroke-width="1" stroke="#4fc3f7"/>
+<polyline points="110 200 210 176 310 152 410 116 478 86" stroke="#4fc3f7" stroke-dasharray="6 5"/>
+<circle cx="110" cy="200" r="3" stroke="#4fc3f7"/>
+<circle cx="210" cy="176" r="3" stroke="#4fc3f7"/>
+<circle cx="310" cy="152" r="3" stroke="#4fc3f7"/>
+<circle cx="410" cy="116" r="3" stroke="#4fc3f7"/>
+<path d="M478 86l-12 1M478 86l-6 10" stroke="#4fc3f7"/>
+<text x="110" y="272" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle">jul</text>
+<text x="210" y="272" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle">ago</text>
+<text x="310" y="272" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle">set</text>
+<text x="410" y="272" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle">out</text>
+<path d="M40 262h440" stroke-width="1"/>
+<g fill="#c9ccd2" stroke="none" font-size="10" letter-spacing="1"><text x="30" y="284">FIG. 04</text><text x="490" y="284" text-anchor="end">ECONOMIA DO MÊS</text></g>
+</svg>

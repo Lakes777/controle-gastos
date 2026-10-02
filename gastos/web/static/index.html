@@ -13,12 +13,77 @@
        o app.js escondidas, em vez de piscarem todas empilhadas numa conexão lenta.
        Sem JavaScript, a classe não entra e tudo aparece normalmente. -->
   <script>document.documentElement.classList.add("js");</script>
+  <!-- Sem hash no endereço, a página abre no lobby (a tela de entrada). Marcado aqui, antes
+       de a página aparecer, para o topo e as abas não piscarem antes do app.js chegar. -->
+  <script>if (!location.hash) document.documentElement.classList.add("em-lobby");</script>
   <script src="/static/app.js" defer></script>
 </head>
 <body>
+  <!-- Lobby: a tela de entrada, no endereço sem hash. O app.js troca entre ela e as abas. -->
+  <section class="lobby" id="lobby" aria-labelledby="lobby-titulo">
+    <!-- Fundo: três faixas de desenhos (pastas static/pranchas) que deslizam devagar.
+         O app.js põe as imagens só quando o lobby aparece. -->
+    <div class="lobby__fundo" id="lobby-fundo" aria-hidden="true"></div>
+
+    <div class="container lobby__conteudo">
+      <p class="lobby__selo reveal" data-grupo="0">Finanças pessoais · Python e FastAPI</p>
+      <h1 class="lobby__titulo reveal" id="lobby-titulo" tabindex="-1" data-grupo="0">Controle de Gastos</h1>
+      <p class="lobby__frase reveal" data-grupo="1">
+        Registre o que gastou, acompanhe o limite de cada categoria e veja para onde foi o
+        dinheiro do mês. No navegador ou no terminal, com os mesmos dados.
+      </p>
+
+      <!-- Ícones da Lucide (lucide.dev, licença ISC) -->
+      <ul class="destaques reveal" data-grupo="2">
+        <li class="destaque spot">
+          <svg class="destaque__icone" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+            <path d="M12 12v6"/><path d="m15 15-3-3-3 3"/>
+          </svg>
+          <h2 class="destaque__titulo">Importa o extrato</h2>
+          <p class="destaque__texto">CSV do Nubank ou OFX de qualquer banco, sem nunca repetir um gasto.</p>
+        </li>
+        <li class="destaque spot">
+          <svg class="destaque__icone" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+          </svg>
+          <h2 class="destaque__titulo">Orçamento com alertas</h2>
+          <p class="destaque__texto">Um limite por categoria; avisa aos 80% e quando estoura.</p>
+        </li>
+        <li class="destaque spot">
+          <svg class="destaque__icone" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+            <path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 9v12"/><path d="M15 9v12"/>
+          </svg>
+          <h2 class="destaque__titulo">Exporta para Excel e CSV</h2>
+          <p class="destaque__texto">Planilha com valores em R$, datas de verdade e linha de total.</p>
+        </li>
+      </ul>
+
+      <div class="lobby__acoes reveal" data-grupo="3">
+        <a class="botao botao--grande botao--vivo" href="#resumo" id="lobby-comecar">Começar</a>
+        <!-- Só na versão online, para quem ainda não entrou (GET /info) -->
+        <button class="botao botao--grande botao--fantasma" type="button" id="lobby-entrar" hidden>Entrar na minha conta</button>
+        <a class="lobby__codigo" href="https://github.com/Lakes777/controle-gastos" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>
+          </svg>
+          Ver o código no GitHub
+        </a>
+      </div>
+      <!-- Diz o que o Começar abre: a demonstração, a conta de quem entrou ou os dados do computador -->
+      <p class="lobby__nota reveal" id="lobby-nota" data-grupo="3" hidden></p>
+    </div>
+  </section>
+
   <header class="topo">
     <div class="container topo__conteudo">
-      <h1 class="topo__titulo">Controle de Gastos</h1>
+      <!-- O nome leva de volta ao lobby -->
+      <h1 class="topo__titulo"><a class="topo__inicio" href="/" id="link-lobby">Controle de Gastos</a></h1>
       <div class="topo__acoes">
         <a class="topo__link" href="/docs">Documentação da API</a>
         <!-- Só um dos dois aparece (GET /info diz se há alguém logado) -->

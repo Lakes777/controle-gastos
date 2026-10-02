@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" fill="none" stroke="#c9ccd2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" font-family="Fira Code, monospace">
+<!-- Prancha 3 do lobby: cupom do mercado (desenho próprio do projeto) -->
+<rect x="6" y="6" width="508" height="288" rx="4" stroke-width="1"/>
+<path d="M6 22h16M22 6v16M514 278h-16M498 294v-16" stroke-width="1"/>
+<path d="M190 30h160v226l-10 8l-10 -8l-10 8l-10 -8l-10 8l-10 -8l-10 8l-10 -8l-10 8l-10 -8l-10 8l-10 -8l-10 8l-10 -8l-10 8l-10 -8z"/>
+<text x="270" y="50" fill="#c9ccd2" stroke="none" font-size="10" text-anchor="middle">CUPOM FISCAL</text>
+<path d="M204 60h132" stroke-dasharray="3 4" stroke-width="1"/>
+<text x="204" y="80" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">arroz 5kg</text>
+<text x="336" y="80" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="end">27,90</text>
+<text x="204" y="98" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">café 500g</text>
+<text x="336" y="98" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="end">18,49</text>
+<text x="204" y="116" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">leite x6</text>
+<text x="336" y="116" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="end">32,94</text>
+<text x="204" y="134" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">pão de forma</text>
+<text x="336" y="134" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="end">9,98</text>
+<text x="204" y="152" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">detergente</text>
+<text x="336" y="152" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="end">4,59</text>
+<text x="204" y="170" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">maçã 1kg</text>
+<text x="336" y="170" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="end">8,50</text>
+<path d="M204 190h132" stroke-dasharray="3 4" stroke-width="1"/>
+<text x="204" y="208" fill="#4fc3f7" stroke="none" font-size="10" text-anchor="start">TOTAL</text>
+<text x="336" y="208" fill="#4fc3f7" stroke="none" font-size="10" text-anchor="end">102,40</text>
+<path d="M214.0 222v18" stroke-width="1"/>
+<path d="M219.5 222v18" stroke-width="2"/>
+<path d="M225.0 222v18" stroke-width="1"/>
+<path d="M230.5 222v18" stroke-width="1"/>
+<path d="M236.0 222v18" stroke-width="3"/>
+<path d="M241.5 222v18" stroke-width="1"/>
+<path d="M247.0 222v18" stroke-width="2"/>
+<path d="M252.5 222v18" stroke-width="1"/>
+<path d="M258.0 222v18" stroke-width="1"/>
+<path d="M263.5 222v18" stroke-width="2"/>
+<path d="M269.0 222v18" stroke-width="1"/>
+<path d="M274.5 222v18" stroke-width="3"/>
+<path d="M280.0 222v18" stroke-width="1"/>
+<path d="M285.5 222v18" stroke-width="1"/>
+<path d="M291.0 222v18" stroke-width="2"/>
+<path d="M296.5 222v18" stroke-width="1"/>
+<path d="M302.0 222v18" stroke-width="2"/>
+<path d="M307.5 222v18" stroke-width="1"/>
+<path d="M313.0 222v18" stroke-width="1"/>
+<path d="M318.5 222v18" stroke-width="3"/>
+<path d="M324.0 222v18" stroke-width="1"/>
+<ellipse cx="312" cy="204" rx="36" ry="13" stroke="#4fc3f7" stroke-width="1"/>
+<path d="M348 200l52 -30h40" stroke="#4fc3f7" stroke-width="1"/>
+<text x="404" y="164" fill="#4fc3f7" stroke="none" font-size="9" text-anchor="start">conferido</text>
+<path d="M160 30v226M154 30h12M154 256h12" stroke-width="1"/>
+<path d="M160 30l-3 8M160 30l3 8M160 256l-3 -8M160 256l3 -8" stroke-width="1"/>
+<text x="150" y="146" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle" transform="rotate(-90 150 146)">226 mm</text>
+<g fill="#c9ccd2" stroke="none" font-size="10" letter-spacing="1"><text x="30" y="284">FIG. 03</text><text x="490" y="284" text-anchor="end">CUPOM DO MERCADO</text></g>
+</svg>

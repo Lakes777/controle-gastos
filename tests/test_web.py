@@ -318,6 +318,62 @@ def test_pagina_marca_o_javascript_antes_do_app_js(cliente):
     assert "@keyframes mostrar-sem-abas" in css
 
 
+# ---------- Lobby (tela de entrada) ----------
+
+PRANCHAS = ["barras", "rosca", "recibo", "moedas", "cartao", "calendario"]
+
+
+def test_lobby_abre_na_raiz_sem_login(cliente):
+    pagina = cliente.get("/")
+    assert pagina.status_code == 200
+    html = pagina.text
+    assert 'id="lobby"' in html
+    # O botão principal leva às abas, e o código fica a um clique
+    assert 'id="lobby-comecar"' in html and 'href="#resumo"' in html
+    assert "https://github.com/Lakes777/controle-gastos" in html
+    # O nome no topo do app volta para o lobby
+    assert 'id="link-lobby" href="/"' in html or 'href="/" id="link-lobby"' in html
+
+
+def test_lobby_tem_um_h1_e_o_topo_some_no_lobby(cliente):
+    html = cliente.get("/").text
+    lobby, resto = html.split('<header class="topo">')
+    assert lobby.count("<h1") == 1
+    # Fora do lobby, só o h1 do topo (que fica escondido enquanto o lobby aparece)
+    assert resto.count("<h1") == 1
+    css = cliente.get("/static/estilo.css").text
+    assert ".em-lobby .topo" in css and ".em-lobby main" in css
+    # A marca do lobby entra no <head>, antes de a página aparecer (sem piscar o topo)
+    cabecalho = html.split("</head>")[0]
+    assert 'classList.add("em-lobby")' in cabecalho
+
+
+@pytest.mark.parametrize("nome", PRANCHAS)
+def test_pranchas_do_fundo_sao_servidas(cliente, nome):
+    resposta = cliente.get(f"/static/pranchas/{nome}.svg")
+    assert resposta.status_code == 200
+    assert resposta.headers["content-type"].startswith("image/svg+xml")
+    svg = resposta.text
+    assert 'viewBox="0 0 520 300"' in svg
+    # Desenho de traço, leve: nada de imagem embutida nem script
+    assert "<image" not in svg and "<script" not in svg
+    assert len(svg.encode()) < 12_000
+
+
+def test_o_app_js_conhece_todas_as_pranchas(cliente):
+    js = cliente.get("/static/app.js").text
+    for nome in PRANCHAS:
+        assert f'"{nome}"' in js
+
+
+def test_faixas_do_lobby_param_com_menos_movimento(cliente):
+    css = cliente.get("/static/estilo.css").text
+    assert "@keyframes deslizar" in css
+    assert "translate3d(-50%, 0, 0)" in css
+    menos_movimento = css.split("@media (prefers-reduced-motion: reduce)")[1]
+    assert "animation: none !important" in menos_movimento
+
+
 # ---------- Importação do Nubank ----------
 
 FATURA = """date,title,amount
