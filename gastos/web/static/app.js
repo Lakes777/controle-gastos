@@ -190,7 +190,7 @@ function desenharNumeros(resumo, gastos) {
 
 function desenharBarras(resumo) {
   if (!resumo.por_categoria.length) {
-    $("#barras").replaceChildren(el("p", { class: "aviso", text: "Nada para mostrar ainda." }));
+    $("#barras").replaceChildren(el("p", { class: "aviso", text: "Nenhum gasto no período." }));
     return;
   }
   const maior = Number(resumo.por_categoria[0].total);
@@ -783,8 +783,18 @@ const ABAS_SEM_PERIODO = ["recorrentes", "importar"];
 let abasIniciadas = false;
 let trocaAtual = 0; // ao clicar rápido em várias abas, só a última troca vale
 
+// No celular a barra de abas rola de lado: a ponta que ainda tem abas escondidas
+// fica esmaecida, para mostrar que dá para rolar (no começo, "Importar" fica fora da tela).
+const barraAbas = $(".abas");
+function marcarPontasDasAbas() {
+  const sobraDireita = barraAbas.scrollWidth - barraAbas.clientWidth - barraAbas.scrollLeft;
+  barraAbas.classList.toggle("abas--mais-esquerda", barraAbas.scrollLeft > 2);
+  barraAbas.classList.toggle("abas--mais-direita", sobraDireita > 2);
+}
+
 // Pílula do menu desliza até o link da aba ativa
 function moverPilula() {
+  marcarPontasDasAbas();
   const ativo = document.querySelector(".abas__link--ativo");
   if (!ativo) return;
   pilula.style.width = `${ativo.offsetWidth}px`;
@@ -845,6 +855,7 @@ function iniciarAbas() {
   document.documentElement.classList.add("com-abas");
   window.addEventListener("hashchange", () => mostrarAba(true));
   window.addEventListener("resize", moverPilula);
+  barraAbas.addEventListener("scroll", marcarPontasDasAbas, { passive: true });
   document.fonts.ready.then(moverPilula);
   // Na primeira vez a pílula já nasce no lugar, sem deslizar a partir do canto
   pilula.style.transition = "none";
