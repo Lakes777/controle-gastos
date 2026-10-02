@@ -2,7 +2,7 @@
 
 [![Testes](https://github.com/Lakes777/controle-gastos/actions/workflows/testes.yml/badge.svg)](https://github.com/Lakes777/controle-gastos/actions/workflows/testes.yml)
 
-Spendwise · controle de gastos: aplicativo para registrar e acompanhar gastos pessoais: na linha de comando, em Python puro, ou no navegador, com uma API em FastAPI.
+**Spendwise · controle de gastos.** Aplicativo para registrar e acompanhar gastos pessoais: na linha de comando, em Python puro, ou no navegador, com uma API em FastAPI.
 
 **Ver ao vivo:** https://controle-gastos-lakes777.vercel.app (demonstração com dados de exemplo, só seus)
 

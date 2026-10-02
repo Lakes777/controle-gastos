@@ -915,7 +915,7 @@ function mostrarAba(focar) {
     $("#topo-nome").setAttribute("aria-level", "1");
   }
   const titulo = noLobby ? $("#lobby-titulo") : atual.querySelector(".aba__titulo");
-  document.title = noLobby ? "Spendwise" : `${titulo.textContent} | Controle de Gastos`;
+  document.title = noLobby ? "Spendwise" : `${titulo.textContent} | Spendwise`;
 
   // O que está na tela agora (o topo com o menu fica sempre): o lobby ou a aba aberta
   const estavaNoLobby = raiz.classList.contains("em-lobby");
