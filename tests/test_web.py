@@ -305,6 +305,19 @@ def test_pagina_inicial_e_arquivos_do_front(cliente):
         assert cliente.get(f"/static/{arquivo}").status_code == 200
 
 
+def test_pagina_marca_o_javascript_antes_do_app_js(cliente):
+    # A marca "js" precisa entrar antes do app.js (que vem com defer): é ela que esconde
+    # as seções até as abas ficarem prontas, em vez de piscarem numa conexão lenta.
+    pagina = cliente.get("/").text
+    cabecalho = pagina.split("</head>")[0]
+    assert 'document.documentElement.classList.add("js")' in cabecalho
+    assert cabecalho.index('classList.add("js")') < cabecalho.index("/static/app.js")
+    # E o CSS sabe esconder (com prazo para mostrar, caso o app.js nunca chegue).
+    css = cliente.get("/static/estilo.css").text
+    assert ".js:not(.com-abas) main > .aba" in css
+    assert "@keyframes mostrar-sem-abas" in css
+
+
 # ---------- Importação do Nubank ----------
 
 FATURA = """date,title,amount

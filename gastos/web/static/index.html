@@ -9,6 +9,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="stylesheet" href="/static/estilo.css">
+  <!-- Avisa o CSS, antes de a página aparecer, que há JavaScript: assim as seções esperam
+       o app.js escondidas, em vez de piscarem todas empilhadas numa conexão lenta.
+       Sem JavaScript, a classe não entra e tudo aparece normalmente. -->
+  <script>document.documentElement.classList.add("js");</script>
   <script src="/static/app.js" defer></script>
 </head>
 <body>

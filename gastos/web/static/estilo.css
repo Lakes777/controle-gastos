@@ -196,6 +196,20 @@ body {
   display: none !important;
 }
 
+/* Com JavaScript, enquanto o app.js ainda não montou as abas, as seções esperam
+   escondidas (numa conexão lenta elas piscavam todas empilhadas). Se o app.js não
+   chegar em 4 s, elas aparecem mesmo assim, para a página nunca ficar em branco. */
+.js:not(.com-abas) main > .aba {
+  visibility: hidden;
+  animation: mostrar-sem-abas 0s linear 4s forwards;
+}
+
+@keyframes mostrar-sem-abas {
+  to {
+    visibility: visible;
+  }
+}
+
 .aba {
   padding-block: 28px 56px;
 }
@@ -1217,5 +1231,10 @@ body {
 
   .aba--saindo {
     animation: sair 0.15s ease-out both !important;
+  }
+
+  /* Não é movimento: só a garantia de mostrar as seções se o app.js não chegar */
+  .js:not(.com-abas) main > .aba {
+    animation: mostrar-sem-abas 0s linear 4s forwards !important;
   }
 }
