@@ -25,14 +25,14 @@
 <text x="110" y="194" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">TITULAR</text>
 <text x="226" y="194" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">09/29</text>
 <circle cx="322" cy="198" r="15"/>
-<circle cx="342" cy="198" r="15" stroke="#4fc3f7"/>
+<circle cx="342" cy="198" r="15" stroke="#66bb6a"/>
 <path d="M80 252v-8M380 252v-8M80 248h300" stroke-width="1"/>
 <path d="M80 248l8 -3M80 248l8 3M380 248l-8 -3M380 248l-8 3" stroke-width="1"/>
 <text x="230" y="262" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle">85,6 mm</text>
 <path d="M400 60h90M400 60v60" stroke-width="1"/>
 <text x="408" y="80" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">fecha dia 03</text>
-<text x="408" y="98" fill="#4fc3f7" stroke="none" font-size="9" text-anchor="start">vence dia 10</text>
+<text x="408" y="98" fill="#66bb6a" stroke="none" font-size="9" text-anchor="start">vence dia 10</text>
 <text x="408" y="116" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">limite 70%</text>
-<path d="M408 132h80" stroke-width="3" opacity=".35"/><path d="M408 132h56" stroke="#4fc3f7" stroke-width="3"/>
+<path d="M408 132h80" stroke-width="3" opacity=".35"/><path d="M408 132h56" stroke="#66bb6a" stroke-width="3"/>
 <g fill="#c9ccd2" stroke="none" font-size="10" letter-spacing="1"><text x="30" y="284">FIG. 05</text><text x="490" y="284" text-anchor="end">FATURA DO CARTÃO</text></g>
 </svg>

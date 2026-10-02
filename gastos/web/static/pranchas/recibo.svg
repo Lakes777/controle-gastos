@@ -18,8 +18,8 @@
 <text x="204" y="170" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">maçã 1kg</text>
 <text x="336" y="170" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="end">8,50</text>
 <path d="M204 190h132" stroke-dasharray="3 4" stroke-width="1"/>
-<text x="204" y="208" fill="#4fc3f7" stroke="none" font-size="10" text-anchor="start">TOTAL</text>
-<text x="336" y="208" fill="#4fc3f7" stroke="none" font-size="10" text-anchor="end">102,40</text>
+<text x="204" y="208" fill="#66bb6a" stroke="none" font-size="10" text-anchor="start">TOTAL</text>
+<text x="336" y="208" fill="#66bb6a" stroke="none" font-size="10" text-anchor="end">102,40</text>
 <path d="M214.0 222v18" stroke-width="1"/>
 <path d="M219.5 222v18" stroke-width="2"/>
 <path d="M225.0 222v18" stroke-width="1"/>
@@ -41,9 +41,9 @@
 <path d="M313.0 222v18" stroke-width="1"/>
 <path d="M318.5 222v18" stroke-width="3"/>
 <path d="M324.0 222v18" stroke-width="1"/>
-<ellipse cx="312" cy="204" rx="36" ry="13" stroke="#4fc3f7" stroke-width="1"/>
-<path d="M348 200l52 -30h40" stroke="#4fc3f7" stroke-width="1"/>
-<text x="404" y="164" fill="#4fc3f7" stroke="none" font-size="9" text-anchor="start">conferido</text>
+<ellipse cx="312" cy="204" rx="36" ry="13" stroke="#66bb6a" stroke-width="1"/>
+<path d="M348 200l52 -30h40" stroke="#66bb6a" stroke-width="1"/>
+<text x="404" y="164" fill="#66bb6a" stroke="none" font-size="9" text-anchor="start">conferido</text>
 <path d="M160 30v226M154 30h12M154 256h12" stroke-width="1"/>
 <path d="M160 30l-3 8M160 30l3 8M160 256l-3 -8M160 256l3 -8" stroke-width="1"/>
 <text x="150" y="146" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle" transform="rotate(-90 150 146)">226 mm</text>

@@ -33,14 +33,14 @@
 <path d="M374 178A36 10 0 0 0 446 178" stroke-width="1.2"/>
 <path d="M374 166A36 10 0 0 0 446 166" stroke-width="1.2"/>
 <path d="M374 154A36 10 0 0 0 446 154" stroke-width="1.2"/>
-<ellipse cx="410" cy="142" rx="36" ry="10" stroke="#4fc3f7"/>
-<ellipse cx="410" cy="142" rx="24" ry="6" stroke-width="1" stroke="#4fc3f7"/>
-<polyline points="110 200 210 176 310 152 410 116 478 86" stroke="#4fc3f7" stroke-dasharray="6 5"/>
-<circle cx="110" cy="200" r="3" stroke="#4fc3f7"/>
-<circle cx="210" cy="176" r="3" stroke="#4fc3f7"/>
-<circle cx="310" cy="152" r="3" stroke="#4fc3f7"/>
-<circle cx="410" cy="116" r="3" stroke="#4fc3f7"/>
-<path d="M478 86l-12 1M478 86l-6 10" stroke="#4fc3f7"/>
+<ellipse cx="410" cy="142" rx="36" ry="10" stroke="#66bb6a"/>
+<ellipse cx="410" cy="142" rx="24" ry="6" stroke-width="1" stroke="#66bb6a"/>
+<polyline points="110 200 210 176 310 152 410 116 478 86" stroke="#66bb6a" stroke-dasharray="6 5"/>
+<circle cx="110" cy="200" r="3" stroke="#66bb6a"/>
+<circle cx="210" cy="176" r="3" stroke="#66bb6a"/>
+<circle cx="310" cy="152" r="3" stroke="#66bb6a"/>
+<circle cx="410" cy="116" r="3" stroke="#66bb6a"/>
+<path d="M478 86l-12 1M478 86l-6 10" stroke="#66bb6a"/>
 <text x="110" y="272" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle">jul</text>
 <text x="210" y="272" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle">ago</text>
 <text x="310" y="272" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="middle">set</text>

@@ -21,7 +21,7 @@
 <text x="276" y="87" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">03</text>
 <text x="320" y="87" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">04</text>
 <text x="56" y="121" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">05</text>
-<circle cx="61" cy="118" r="9.5" stroke="#4fc3f7"/>
+<circle cx="61" cy="118" r="9.5" stroke="#66bb6a"/>
 <text x="100" y="121" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">06</text>
 <text x="144" y="121" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">07</text>
 <text x="188" y="121" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">08</text>
@@ -51,8 +51,8 @@
 <text x="188" y="223" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">29</text>
 <text x="232" y="223" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">30</text>
 <text x="276" y="223" fill="#c9ccd2" stroke="none" font-size="8" text-anchor="start">31</text>
-<circle cx="388" cy="89" r="5" stroke="#4fc3f7"/>
-<text x="400" y="92" fill="#4fc3f7" stroke="none" font-size="9" text-anchor="start">dia 05</text>
+<circle cx="388" cy="89" r="5" stroke="#66bb6a"/>
+<text x="400" y="92" fill="#66bb6a" stroke="none" font-size="9" text-anchor="start">dia 05</text>
 <text x="452" y="92" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">aluguel</text>
 <circle cx="388" cy="123" r="5" stroke="#c9ccd2"/>
 <text x="400" y="126" fill="#c9ccd2" stroke="none" font-size="9" text-anchor="start">dia 10</text>

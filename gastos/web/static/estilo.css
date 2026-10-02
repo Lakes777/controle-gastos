@@ -1,4 +1,4 @@
-/* Tons de cinza-grafite, neutros e sóbrios; o azul do portfólio fica só nos destaques */
+/* Tons de cinza-grafite, neutros e sóbrios; o verde do projeto fica só nos destaques */
 :root {
   --bg: #0d0e10;
   --surface: #16171a;
@@ -8,8 +8,8 @@
   --text: #e4e5e7;
   --text-muted: #8e9199;
 
-  --accent: #4fc3f7;
-  --accent-dark: #0288d1;
+  --accent: #66bb6a;
+  --accent-dark: #2a7330;
   --atencao: #ffd54f;
   --perigo: #ef9a9a;
   --topo: #121315;
@@ -58,7 +58,7 @@ body {
   clip-path: inset(50%);
 }
 
-/* Foco do teclado com o mesmo contorno azul em todo botão, link e caixa de abrir/fechar */
+/* Foco do teclado com o mesmo contorno verde em todo botão, link e caixa de abrir/fechar */
 a:focus-visible,
 button:focus-visible,
 summary:focus-visible,
@@ -334,14 +334,14 @@ select:focus-visible {
   font-size: 1rem;
 }
 
-/* Botão vivo (como o do portfólio): sobe um pouco e ganha um brilho azul */
+/* Botão vivo (como o do portfólio): sobe um pouco e ganha um brilho verde */
 .botao.botao--vivo {
   transition: transform 0.2s, background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
 .botao.botao--vivo:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgb(79 195 247 / 0.35);
+  box-shadow: 0 8px 24px rgb(102 187 106 / 0.35);
 }
 
 .lobby__codigo {
@@ -674,7 +674,7 @@ select:focus-visible {
 
 /* O total do mês é o número que importa: ganha destaque */
 .numero:first-child {
-  border-color: rgb(79 195 247 / 0.35);
+  border-color: rgb(102 187 106 / 0.35);
 }
 
 .numero:first-child .numero__valor {
@@ -1096,7 +1096,7 @@ select:focus-visible {
 
 .etiqueta {
   display: inline-block;
-  background: rgb(79 195 247 / 0.1);
+  background: rgb(102 187 106 / 0.1);
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--accent);
@@ -1550,7 +1550,7 @@ select:focus-visible {
   z-index: -1;
   background: radial-gradient(
     380px circle at var(--mx, 50%) var(--my, 50%),
-    rgb(79 195 247 / 0.07),
+    rgb(102 187 106 / 0.07),
     transparent 60%
   );
 }
@@ -1560,7 +1560,7 @@ select:focus-visible {
   padding: 1px;
   background: radial-gradient(
     220px circle at var(--mx, 50%) var(--my, 50%),
-    rgb(79 195 247 / 0.55),
+    rgb(102 187 106 / 0.55),
     transparent 70%
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
