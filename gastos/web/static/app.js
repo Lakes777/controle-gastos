@@ -894,24 +894,35 @@ function mostrarAba(focar) {
   if (vista === vistaAtual) return;
   vistaAtual = vista;
 
+  // No menu, "Início" (href="/") fica ativo no lobby; nas abas, o link do hash
+  const hrefAtivo = noLobby ? "/" : `#${atual.id}`;
+  linksAbas.forEach((link) => {
+    const ativo = link.getAttribute("href") === hrefAtivo;
+    link.classList.toggle("abas__link--ativo", ativo);
+    if (ativo) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+  if (abasIniciadas) moverPilula(); // a pílula já desliza enquanto a tela anterior some
   if (!noLobby) {
-    linksAbas.forEach((link) => {
-      const ativo = link.getAttribute("href") === `#${atual.id}`;
-      link.classList.toggle("abas__link--ativo", ativo);
-      if (ativo) link.setAttribute("aria-current", "page");
-      else link.removeAttribute("aria-current");
-    });
     $("#periodo").classList.toggle("periodo--escondido", ABAS_SEM_PERIODO.includes(atual.id));
+  }
+  // Um título de nível 1 por tela: no lobby é o nome grande; nas abas, o nome no topo
+  if (noLobby) {
+    $("#topo-nome").removeAttribute("role");
+    $("#topo-nome").removeAttribute("aria-level");
+  } else {
+    $("#topo-nome").setAttribute("role", "heading");
+    $("#topo-nome").setAttribute("aria-level", "1");
   }
   const titulo = noLobby ? $("#lobby-titulo") : atual.querySelector(".aba__titulo");
   document.title = noLobby ? "Controle de Gastos" : `${titulo.textContent} | Controle de Gastos`;
 
-  // O que está na tela agora: o lobby, ou o topo e a aba aberta
+  // O que está na tela agora (o topo com o menu fica sempre): o lobby ou a aba aberta
   const estavaNoLobby = raiz.classList.contains("em-lobby");
   let anteriores = [];
   if (abasIniciadas) {
     if (estavaNoLobby) anteriores = noLobby ? [] : [lobby];
-    else if (noLobby) anteriores = [$(".topo"), $("main")];
+    else if (noLobby) anteriores = [$("main")];
     else anteriores = abas.filter((aba) => !aba.hidden && aba !== atual);
   }
   const estaTroca = ++trocaAtual;
@@ -920,20 +931,20 @@ function mostrarAba(focar) {
 
   function entrar() {
     if (estaTroca !== trocaAtual) return;
-    for (const tela of [lobby, $(".topo"), $("main"), ...abas]) tela.classList.remove("aba--saindo");
+    for (const tela of [lobby, $("main"), ...abas]) tela.classList.remove("aba--saindo");
     raiz.classList.toggle("em-lobby", noLobby);
+    medirTopo(); // o período some no lobby, e o topo muda de altura no celular
+    // Na primeira vez a pílula já nasce no lugar, sem deslizar a partir do canto
+    if (primeiraVez) pilulaNoLugar();
+    else moverPilula();
+    // No celular a barra rola de lado: traz o item escolhido para a vista.
+    document.querySelector(".abas__link--ativo")?.scrollIntoView({ block: "nearest", inline: "nearest" });
     if (noLobby) {
       montarFundo();
     } else {
       abas.forEach((aba) => {
         aba.hidden = aba !== atual;
       });
-      // Na primeira vez, ou vindo do lobby (o topo acabou de aparecer), a pílula já nasce
-      // no lugar, sem deslizar a partir do canto
-      if (primeiraVez || estavaNoLobby) pilulaNoLugar();
-      else moverPilula();
-      // No celular a barra rola de lado: traz a aba escolhida para a vista.
-      document.querySelector(".abas__link--ativo")?.scrollIntoView({ block: "nearest", inline: "nearest" });
       atual.classList.add("animar-barras");
       setTimeout(() => atual.classList.remove("animar-barras"), 1200);
     }
@@ -953,7 +964,12 @@ function mostrarAba(focar) {
   }
 }
 
-// Põe a pílula embaixo da aba ativa sem deslizar (na primeira vez e ao sair do lobby)
+// O lobby ocupa a tela abaixo do topo: o CSS usa a altura medida aqui
+function medirTopo() {
+  raiz.style.setProperty("--altura-topo", `${$(".topo").offsetHeight}px`);
+}
+
+// Põe a pílula embaixo do item ativo sem deslizar (na primeira vez)
 function pilulaNoLugar() {
   pilula.style.transition = "none";
   moverPilula();
@@ -965,10 +981,17 @@ function iniciarAbas() {
   raiz.classList.add("com-abas");
   window.addEventListener("hashchange", () => mostrarAba(true));
   window.addEventListener("popstate", () => mostrarAba(true));
-  window.addEventListener("resize", moverPilula);
+  window.addEventListener("resize", () => {
+    moverPilula();
+    medirTopo();
+  });
   barraAbas.addEventListener("scroll", marcarPontasDasAbas, { passive: true });
-  document.fonts.ready.then(moverPilula);
+  document.fonts.ready.then(() => {
+    moverPilula();
+    medirTopo();
+  });
   $("#link-lobby").addEventListener("click", irParaLobby);
+  $("#link-inicio").addEventListener("click", irParaLobby);
   // Com a aba do navegador escondida, as faixas do lobby param de andar
   document.addEventListener("visibilitychange", () =>
     lobby.classList.toggle("lobby--pausado", document.hidden));

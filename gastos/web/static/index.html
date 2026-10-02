@@ -14,11 +14,43 @@
        Sem JavaScript, a classe não entra e tudo aparece normalmente. -->
   <script>document.documentElement.classList.add("js");</script>
   <!-- Sem hash no endereço, a página abre no lobby (a tela de entrada). Marcado aqui, antes
-       de a página aparecer, para o topo e as abas não piscarem antes do app.js chegar. -->
+       de a página aparecer, para as abas não piscarem antes do app.js chegar. -->
   <script>if (!location.hash) document.documentElement.classList.add("em-lobby");</script>
   <script src="/static/app.js" defer></script>
 </head>
 <body>
+  <header class="topo">
+    <div class="container topo__conteudo">
+      <!-- O nome leva de volta ao lobby. Nas abas ele é o título da página (nível 1); no
+           lobby o app.js tira o papel de título, porque lá o h1 é o nome grande do lobby. -->
+      <p class="topo__titulo" id="topo-nome" role="heading" aria-level="1"><a class="topo__inicio" href="/" id="link-lobby">Controle de Gastos</a></p>
+      <div class="topo__acoes">
+        <a class="topo__link" href="/docs">Documentação da API</a>
+        <!-- Só um dos dois aparece (GET /info diz se há alguém logado) -->
+        <button class="botao botao--pequeno" type="button" id="botao-entrar" hidden>Entrar</button>
+        <button class="botao botao--pequeno botao--fantasma" type="button" id="botao-conta" hidden></button>
+      </div>
+    </div>
+    <div class="container topo__barra">
+      <!-- Início leva ao lobby (endereço sem hash); os outros abrem uma aba (#gastos, #orcamento...) -->
+      <nav class="abas" aria-label="Seções">
+        <span class="abas__pilula" id="abas-pilula" aria-hidden="true"></span>
+        <ul class="abas__lista">
+          <li><a class="abas__link" href="/" id="link-inicio">Início</a></li>
+          <li><a class="abas__link" href="#resumo">Resumo</a></li>
+          <li><a class="abas__link" href="#gastos">Gastos</a></li>
+          <li><a class="abas__link" href="#orcamento">Orçamento</a></li>
+          <li><a class="abas__link" href="#recorrentes">Recorrentes</a></li>
+          <li><a class="abas__link" href="#importar">Importar</a></li>
+        </ul>
+      </nav>
+      <div class="periodo" id="periodo">
+        <label class="periodo__rotulo" for="mes">Período</label>
+        <select class="campo campo--pequeno" id="mes"></select>
+      </div>
+    </div>
+  </header>
+
   <!-- Lobby: a tela de entrada, no endereço sem hash. O app.js troca entre ela e as abas. -->
   <section class="lobby" id="lobby" aria-labelledby="lobby-titulo">
     <!-- Fundo: três faixas de desenhos (pastas static/pranchas) que deslizam devagar.
@@ -79,36 +111,6 @@
       <p class="lobby__nota reveal" id="lobby-nota" data-grupo="3" hidden></p>
     </div>
   </section>
-
-  <header class="topo">
-    <div class="container topo__conteudo">
-      <!-- O nome leva de volta ao lobby -->
-      <h1 class="topo__titulo"><a class="topo__inicio" href="/" id="link-lobby">Controle de Gastos</a></h1>
-      <div class="topo__acoes">
-        <a class="topo__link" href="/docs">Documentação da API</a>
-        <!-- Só um dos dois aparece (GET /info diz se há alguém logado) -->
-        <button class="botao botao--pequeno" type="button" id="botao-entrar" hidden>Entrar</button>
-        <button class="botao botao--pequeno botao--fantasma" type="button" id="botao-conta" hidden></button>
-      </div>
-    </div>
-    <div class="container topo__barra">
-      <!-- Cada link abre uma aba (o endereço muda para #gastos, #orcamento...) -->
-      <nav class="abas" aria-label="Seções">
-        <span class="abas__pilula" id="abas-pilula" aria-hidden="true"></span>
-        <ul class="abas__lista">
-          <li><a class="abas__link" href="#resumo">Resumo</a></li>
-          <li><a class="abas__link" href="#gastos">Gastos</a></li>
-          <li><a class="abas__link" href="#orcamento">Orçamento</a></li>
-          <li><a class="abas__link" href="#recorrentes">Recorrentes</a></li>
-          <li><a class="abas__link" href="#importar">Importar</a></li>
-        </ul>
-      </nav>
-      <div class="periodo" id="periodo">
-        <label class="periodo__rotulo" for="mes">Período</label>
-        <select class="campo campo--pequeno" id="mes"></select>
-      </div>
-    </div>
-  </header>
 
   <main class="container">
     <!-- Só aparece na versão online (GET /info diz se é demonstração) -->

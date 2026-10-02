@@ -338,15 +338,20 @@ def test_lobby_abre_na_raiz_sem_login(cliente):
     assert 'id="link-lobby" href="/"' in html or 'href="/" id="link-lobby"' in html
 
 
-def test_lobby_tem_um_h1_e_o_topo_some_no_lobby(cliente):
+def test_lobby_tem_um_h1_e_o_topo_com_menu_fica(cliente):
     html = cliente.get("/").text
-    lobby, resto = html.split('<header class="topo">')
-    assert lobby.count("<h1") == 1
-    # Fora do lobby, só o h1 do topo (que fica escondido enquanto o lobby aparece)
-    assert resto.count("<h1") == 1
+    # Um h1 só: o nome grande do lobby. O nome no topo é título de nível 1 só nas abas
+    # (o app.js tira o role="heading" dele no lobby).
+    assert html.count("<h1") == 1
+    assert 'id="topo-nome" role="heading" aria-level="1"' in html
+    # O menu começa com Início, que leva ao lobby (endereço sem hash)
+    menu = html.split('class="abas__lista"')[1].split("</ul>")[0]
+    links = re.findall(r'href="([^"]+)"', menu)
+    assert links == ["/", "#resumo", "#gastos", "#orcamento", "#recorrentes", "#importar"]
     css = cliente.get("/static/estilo.css").text
-    assert ".em-lobby .topo" in css and ".em-lobby main" in css
-    # A marca do lobby entra no <head>, antes de a página aparecer (sem piscar o topo)
+    # No lobby somem as abas, mas o topo (com o menu) continua
+    assert ".em-lobby main" in css and ".em-lobby .topo" not in css
+    # A marca do lobby entra no <head>, antes de a página aparecer (sem piscar as abas)
     cabecalho = html.split("</head>")[0]
     assert 'classList.add("em-lobby")' in cabecalho
 

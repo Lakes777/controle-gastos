@@ -130,10 +130,11 @@ select:focus-visible {
 
 /* ---------- Lobby (tela de entrada) ---------- */
 
-/* No lobby, o topo e as abas somem; fora dele, some o lobby (classe posta pelo app.js e,
-   no primeiro carregamento, pelo script do <head>). Sem JavaScript, aparece tudo. */
-.em-lobby .topo,
-.em-lobby main {
+/* No lobby, as abas e o período somem (o topo com o menu fica); fora dele, some o lobby
+   (classe posta pelo app.js e, no primeiro carregamento, pelo script do <head>).
+   Sem JavaScript, aparece tudo. */
+.em-lobby main,
+.em-lobby .periodo {
   display: none;
 }
 
@@ -151,8 +152,9 @@ select:focus-visible {
   position: relative;
   display: grid;
   align-items: center;
-  min-height: 100vh;
-  min-height: 100svh;
+  /* Ocupa a tela abaixo do topo (altura do topo medida pelo app.js) */
+  min-height: calc(100vh - var(--altura-topo, 108px));
+  min-height: calc(100svh - var(--altura-topo, 108px));
   overflow: hidden;
   isolation: isolate;
 }
