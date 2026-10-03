@@ -6,7 +6,7 @@
 
 **Ver ao vivo:** https://controle-gastos-lakes777.vercel.app (demonstração com dados de exemplo, só seus)
 
-![Demonstração do controle de gastos: adicionar, listar, editar, gráficos e exportar para Excel](docs/demo.gif)
+![Demonstração do Spendwise no terminal: adicionar, listar, editar, gráficos e exportar para Excel](docs/demo.gif)
 
 > Gravado com dados de exemplo.
 
@@ -170,9 +170,11 @@ Orçamento de mercado em set/2026: R$ 420,00 de R$ 500,00 (84%) - ATENÇÃO: sob
 
 ## Versão web
 
-![Aba Resumo da versão web: total do mês em destaque, gráfico por categoria e últimos gastos](docs/web.png)
+![Lobby do Spendwise: nome em destaque, três vantagens e os botões Começar e Entrar na minha conta](docs/lobby.png)
 
-> Print com dados de exemplo. A página tem 5 abas (Resumo, Gastos, Orçamento, Recorrentes e Importar), cada uma com seu endereço (`/#gastos`, por exemplo), com as mesmas animações do [portfólio](https://lakes777.github.io).
+![Aba Resumo do Spendwise na versão web: total do mês em destaque, gráfico por categoria e últimos gastos](docs/web.png)
+
+> Prints com dados de exemplo (modo de demonstração). Na raiz fica o lobby; dele, o Começar leva às 5 abas (Resumo, Gastos, Orçamento, Recorrentes e Importar), cada uma com seu endereço (`/#gastos`, por exemplo), com as mesmas animações do [portfólio](https://lakes777.github.io).
 
 ```bash
 python -m venv .venv
