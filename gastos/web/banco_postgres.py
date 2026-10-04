@@ -105,6 +105,20 @@ CRIAR_TABELAS = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS tentativas_login_email ON tentativas_login (email, momento)",
+    # ---------- Chaves de acesso ----------
+    # Para programas do próprio usuário (ex.: o bot do Telegram) lançarem gastos sem
+    # guardar a senha. Igual às sessões, no banco fica só o hash da chave.
+    """
+    CREATE TABLE IF NOT EXISTS chaves (
+        id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        conta      TEXT        NOT NULL REFERENCES contas (id) ON DELETE CASCADE,
+        nome       TEXT        NOT NULL,
+        token_hash TEXT        NOT NULL UNIQUE,
+        criada_em  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        usada_em   TIMESTAMPTZ
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS chaves_conta ON chaves (conta)",
 ]
 
 

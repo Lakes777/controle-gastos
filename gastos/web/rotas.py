@@ -6,7 +6,11 @@
 /recorrentes: gastos lançados sozinhos todo mês.
 /exportar: baixa os gastos em planilha do Excel (.xlsx) ou CSV.
 /importar: lê o CSV do Nubank ou o OFX de qualquer banco, mostra a prévia e salva os gastos revisados.
-/conta: cadastro (com convite), entrar, sair e excluir a conta (só na versão online).
+/conta: cadastro (com convite), entrar, sair, excluir a conta e chaves de acesso (só online).
+
+Online, as rotas de gastos (todas menos as de /conta) aceitam, no lugar do cookie,
+uma chave de acesso no cabeçalho "Authorization: Bearer sw_...". É o jeito de um
+programa do próprio usuário (ex.: o bot do Telegram) lançar gastos sem a senha.
 """
 
 import io
@@ -38,10 +42,12 @@ from gastos.orcamento import Situacao, calcular
 from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
 from gastos.web.banco_postgres import BancoPostgres
 from gastos.web.contas import (
+    LIMITE_CHAVES,
     VALIDADE_SESSAO,
     CadastroFechado,
     ConviteInvalido,
     EmailJaCadastrado,
+    LimiteDeChaves,
     LoginBloqueado,
     normalizar_email,
 )
@@ -49,6 +55,9 @@ from gastos.web.demo import LIMITE_GASTOS, LIMITE_RECORRENTES
 from gastos.web.modelos import (
     PADRAO_MES,
     Cadastro,
+    ChaveCriada,
+    ChaveNova,
+    ChaveSalva,
     ConfirmacaoSenha,
     InfoSessao,
     Login,
@@ -96,13 +105,36 @@ def hoje() -> date:
     return datetime.now(FUSO).date()
 
 
+def chave_do_pedido(request: Request) -> str | None:
+    """A chave de acesso do cabeçalho Authorization (None se o pedido não tem o cabeçalho).
+
+    Só vale na versão online: no computador não há login, e o cabeçalho é ignorado.
+    """
+    if request.app.state.demo is None or "authorization" not in request.headers:
+        return None
+    tipo, _, chave = request.headers["authorization"].partition(" ")
+    if tipo.lower() != "bearer" or not chave.strip():
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Use o cabeçalho Authorization: Bearer <sua chave de acesso>",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return chave.strip()
+
+
 def conferir_origem(request: Request) -> None:
     """Recusa pedidos que alteram dados vindos de outro site (proteção contra CSRF).
 
     O cookie SameSite=Lax já barra a maior parte; esta conferência é uma segunda
     barreira. O navegador sempre manda o cabeçalho Origin nesses pedidos.
+
+    Pedido com chave de acesso não passa por aqui: quem usa a chave é o pedido com
+    o cabeçalho Authorization, nunca o cookie (pegar_banco nem olha o cookie nesse
+    caso), e um site de fora não tem como pôr a chave no pedido.
     """
     if request.method in ("GET", "HEAD", "OPTIONS"):
+        return
+    if chave_do_pedido(request) is not None:
         return
     origem = request.headers.get("origin")
     if origem and urlsplit(origem).netloc != request.headers.get("host"):
@@ -121,10 +153,22 @@ def pegar_banco(
         banco.lancar_recorrentes(dia)
         yield banco
         return
-    # Online: quem tem sessão usa a própria conta; os outros, a demonstração (veja demo.py).
+    # Online: quem tem chave ou sessão usa a própria conta; os outros, a demonstração (veja demo.py).
+    chave = chave_do_pedido(request)
     with closing(demo.conectar()) as conexao:
-        token = request.cookies.get(COOKIE_SESSAO)
-        usuario = request.app.state.autenticacao.conta_da_sessao(conexao, token) if token else None
+        autenticacao = request.app.state.autenticacao
+        if chave is not None:
+            # Com chave, só a chave vale: errada ou apagada, nada de cair no cookie ou na demo.
+            usuario = autenticacao.conta_da_chave(conexao, chave)
+            if usuario is None:
+                raise HTTPException(
+                    status.HTTP_401_UNAUTHORIZED,
+                    "Chave de acesso inválida ou apagada",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+        else:
+            token = request.cookies.get(COOKIE_SESSAO)
+            usuario = autenticacao.conta_da_sessao(conexao, token) if token else None
         if usuario:
             request.state.usuario = usuario
             banco = BancoPostgres(conexao, usuario["id"])
@@ -598,6 +642,18 @@ def gravar_sessao(request: Request, response: Response, token: str) -> None:
     )
 
 
+def recusar_chave(request: Request) -> None:
+    """As rotas da conta (senha, excluir, criar chaves) só aceitam o login do site.
+
+    Assim, quem tiver a chave do bot não consegue apagar a conta nem criar outras chaves.
+    """
+    if "authorization" in request.headers:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "As rotas da conta não aceitam chave de acesso; entre pelo site",
+        )
+
+
 def usuario_logado(request: Request, conexao: psycopg.Connection = Depends(pegar_conexao)) -> dict:
     token = request.cookies.get(COOKIE_SESSAO)
     usuario = request.app.state.autenticacao.conta_da_sessao(conexao, token) if token else None
@@ -696,3 +752,64 @@ def excluir_conta(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Senha errada")
     autenticacao.excluir_conta(conexao, usuario["id"])
     response.delete_cookie(COOKIE_SESSAO)
+
+
+# ---------- Chaves de acesso ----------
+
+
+def para_chave(linha: dict) -> ChaveSalva:
+    return ChaveSalva(
+        id=linha["id"], nome=linha["nome"], criada_em=linha["criada_em"], usada_em=linha["usada_em"]
+    )
+
+
+@roteador_conta.get("/chaves", responses={401: {"description": "Não está logado"}})
+def listar_chaves(
+    request: Request,
+    usuario: dict = Depends(usuario_logado),
+    conexao: psycopg.Connection = Depends(pegar_conexao),
+) -> list[ChaveSalva]:
+    """As chaves da conta, sem o token (ele só aparece quando a chave é criada)."""
+    chaves = request.app.state.autenticacao.listar_chaves(conexao, usuario["id"])
+    return [para_chave(linha) for linha in chaves]
+
+
+@roteador_conta.post(
+    "/chaves",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        401: {"description": "Não está logado"},
+        403: {"description": "Limite de chaves"},
+    },
+)
+def criar_chave(
+    dados: ChaveNova,
+    request: Request,
+    usuario: dict = Depends(usuario_logado),
+    conexao: psycopg.Connection = Depends(pegar_conexao),
+) -> ChaveCriada:
+    """Cria uma chave de acesso. O token vem só nesta resposta: guarde-o."""
+    try:
+        linha, token = request.app.state.autenticacao.criar_chave(conexao, usuario["id"], dados.nome)
+    except LimiteDeChaves:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Sua conta aceita até {LIMITE_CHAVES} chaves. Apague alguma para criar outra.",
+        )
+    return ChaveCriada(**para_chave(linha).model_dump(), token=token)
+
+
+@roteador_conta.delete(
+    "/chaves/{chave_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={401: {"description": "Não está logado"}, 404: {"description": "Chave não encontrada"}},
+)
+def apagar_chave(
+    chave_id: int,
+    request: Request,
+    usuario: dict = Depends(usuario_logado),
+    conexao: psycopg.Connection = Depends(pegar_conexao),
+) -> None:
+    """Apaga a chave: o programa que a usava passa a receber 401 no próximo pedido."""
+    if not request.app.state.autenticacao.apagar_chave(conexao, usuario["id"], chave_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Nenhuma chave com o número {chave_id}")

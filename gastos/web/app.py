@@ -11,6 +11,7 @@ from gastos.web.contas import Autenticacao
 from gastos.web.demo import Demonstracao
 from gastos.web.rotas import (
     conferir_origem,
+    recusar_chave,
     roteador_conta,
     roteador_gastos,
     roteador_importacao,
@@ -51,9 +52,11 @@ def criar_app(
         roteador_orcamentos,
         roteador_recorrentes,
         roteador_importacao,
-        roteador_conta,
     ]:
         app.include_router(roteador, dependencies=protecao)
+    # As rotas da conta não aceitam chave de acesso (só o cookie do site), e a recusa
+    # vem antes de tudo: com o cabeçalho Authorization, nem a origem chega a ser conferida.
+    app.include_router(roteador_conta, dependencies=[Depends(recusar_chave), *protecao])
 
     # A página (HTML, CSS e JS) é servida pela própria API: um só servidor para tudo.
     app.mount("/static", StaticFiles(directory=PASTA_STATIC), name="static")
