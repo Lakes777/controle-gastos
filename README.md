@@ -36,6 +36,7 @@ TOTAL             R$ 960,20
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
 - **Contas de usuário na versão online:** cadastro com código de convite, login com senha em argon2id, sessões que podem ser encerradas e exclusão da conta com todos os dados
+- **Chaves de acesso** para programas seus (como um bot do Telegram) registrarem gastos pela API sem a sua senha: criadas na janela da conta, mostradas uma vez só e apagáveis a qualquer momento
 - **Versão web** (FastAPI + HTML/CSS/JS): página inicial com desenhos de finanças deslizando ao fundo, formulário, lista com editar/remover, gráfico por categoria, orçamento, recorrentes, importação de extratos com prévia e download do .xlsx, usando o mesmo banco do terminal
 - Dados salvos localmente num banco SQLite, fora do controle de versão
 - Quem usava a versão antiga (JSON) tem os gastos importados automaticamente
@@ -201,6 +202,7 @@ Depois, abra http://127.0.0.1:8000 no navegador. A página usa o mesmo banco da 
 | `GET /meses`, `GET /categorias` | meses com gastos e categorias já usadas |
 | `POST /conta/cadastro`, `POST /conta/entrar`, `POST /conta/sair` | contas (só na versão online) |
 | `GET /conta`, `POST /conta/excluir` | quem está logado; apaga a conta (pede a senha) |
+| `GET/POST /conta/chaves`, `DELETE /conta/chaves/{id}` | lista, cria e apaga chaves de acesso (só online, só pelo site) |
 | `GET /info` | se é a demonstração, quem está logado e se o cadastro está aberto |
 
 Variáveis de ambiente opcionais: `GASTOS_BANCO` (arquivo do banco), `GASTOS_DEMO=1` (modo demonstração), `HOST` e `PORT`.
@@ -210,6 +212,25 @@ Variáveis de ambiente opcionais: `GASTOS_BANCO` (arquivo do banco), `GASTOS_DEM
 Na versão online, quem não entra numa conta usa a demonstração. Quem tem conta entra pelo botão **Entrar** e vê só os próprios dados, que ficam guardados no Postgres. Para criar conta é preciso um **código de convite**, definido na variável de ambiente `CODIGO_CONVITE` do servidor; sem ela, o cadastro fica fechado. No computador (`python -m gastos.web` com SQLite) não há login: o programa é de quem o roda.
 
 Não há recuperação de senha por e-mail (o projeto não envia e-mails).
+
+### Chaves de acesso (API para programas seus)
+
+Para um programa seu (um bot do Telegram, um script) usar a API online sem guardar a sua senha, crie uma **chave de acesso** em *Sua conta → Chaves de acesso*. A chave (`sw_...`) aparece **uma vez só**, na criação; depois a lista mostra só o nome, quando foi criada e o último uso. Cada conta tem até 5 chaves, e apagar uma corta o acesso do programa na hora.
+
+O programa manda a chave no cabeçalho `Authorization` e usa as mesmas rotas da página (gastos, resumo, categorias, orçamentos, recorrentes, importação), sempre na conta dona da chave:
+
+```bash
+curl -X POST https://controle-gastos-lakes777.vercel.app/gastos \
+  -H "Authorization: Bearer sw_..." \
+  -H "Content-Type: application/json" \
+  -d '{"valor": "35.00", "categoria": "mercado", "descricao": "pão e leite"}'
+# 201: {"id": 42, "valor": "35.00", "categoria": "mercado", "descricao": "pão e leite", "data": "2026-10-04"}
+
+curl https://controle-gastos-lakes777.vercel.app/categorias -H "Authorization: Bearer sw_..."
+# 200: ["alimentação", "mercado", "transporte"]
+```
+
+`valor` é texto com ponto e até 2 casas (`"35"`, `"35.9"` ou `"35.90"`); `data` (`"AAAA-MM-DD"`) é opcional e vale hoje no horário de Brasília; a categoria vira minúscula. Chave errada ou apagada dá **401** (`{"detail": "Chave de acesso inválida ou apagada"}`). As rotas da conta (`/conta/...`: excluir a conta, criar ou listar chaves) recusam a chave com **403**: quem tiver a chave do bot não consegue apagar a conta nem criar outras chaves. No computador (SQLite, sem login), o cabeçalho é ignorado.
 
 ### Modo demonstração (versão online)
 
@@ -232,7 +253,7 @@ pytest
 
 Os testes do Postgres rodam quando `GASTOS_TESTE_POSTGRES` tem o endereço de um banco (cada teste usa um schema próprio, apagado no fim); sem ela, são pulados. No GitHub Actions, um Postgres 18 sobe junto com os testes.
 
-A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank e do OFX, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa) o modo demonstração (visitantes isolados, cookie inválido, pedidos simultâneos, limites e limpeza das contas antigas) e o login (convite, senha em argon2id, bloqueio de tentativas, sessão encerrada, CSRF, isolamento entre usuários e exclusão da conta). Os testes usam pastas temporárias e nunca tocam nos dados reais.
+A suíte cobre o modelo de dados, o banco SQLite (incluindo a migração do JSON antigo, a edição e a remoção), a exportação para .xlsx e CSV, o gráfico, o orçamento, os gastos recorrentes (simulando datas), a importação do Nubank e do OFX, o fluxo completo da linha de comando e todas as rotas da API (com a data de hoje trocada por uma data fixa) o modo demonstração (visitantes isolados, cookie inválido, pedidos simultâneos, limites e limpeza das contas antigas) e o login (convite, senha em argon2id, bloqueio de tentativas, sessão encerrada, CSRF, isolamento entre usuários e exclusão da conta) e as chaves de acesso (token mostrado uma vez só, só o hash no banco, limite por conta, chave apagada ou de outro usuário, rotas da conta que recusam chave e CSRF continuando a valer para o cookie). Os testes usam pastas temporárias e nunca tocam nos dados reais.
 
 ## Estrutura do projeto
 
@@ -256,7 +277,7 @@ controle-gastos/
 │       ├── __main__.py   # python -m gastos.web (servidor uvicorn)
 │       ├── app.py        # cria o app FastAPI e serve a página
 │       ├── banco_postgres.py  # o mesmo Banco, em Postgres, com uma conta por linha
-│       ├── contas.py     # cadastro com convite, login (argon2id) e sessões
+│       ├── contas.py     # cadastro com convite, login (argon2id), sessões e chaves de acesso
 │       ├── demo.py       # modo demonstração: uma conta com exemplos por visitante
 │       ├── modelos.py    # o que a API recebe e devolve (Pydantic)
 │       ├── rotas.py      # as rotas da API
@@ -303,6 +324,7 @@ controle-gastos/
 - **Sessões guardadas no banco, não em JWT:** o cookie leva um número aleatório (`secrets.token_urlsafe`) e o banco guarda só o SHA-256 dele. "Sair" apaga a sessão no servidor, então um cookie copiado deixa de valer. O cookie é `HttpOnly`, `SameSite=Lax` e `Secure` no HTTPS, e vale 30 dias.
 - **Bloqueio de tentativas:** depois de 5 senhas erradas em 15 minutos, o e-mail fica bloqueado (resposta 429). As tentativas ficam no Postgres, porque o servidor roda em várias cópias e a memória de uma não vale para as outras.
 - **CSRF:** além do `SameSite=Lax`, todo pedido que altera dados confere o cabeçalho `Origin` e recusa pedidos vindos de outro site.
+- **Chaves de acesso em vez da senha no bot:** o bot do Telegram guarda uma chave só dele, que pode ser apagada sem trocar a senha. Como nas sessões, a chave é `secrets.token_urlsafe` (com o prefixo `sw_`, fácil de reconhecer se for colada no lugar errado) e o banco guarda só o SHA-256; por isso ela aparece uma vez só. Cada uso anota a data (`usada_em`), para o usuário ver se uma chave esquecida ainda está em uso. Com o cabeçalho `Authorization`, vale só a chave: errada, dá 401, sem cair no cookie nem na demonstração. Isso também permite pular a conferência do `Origin` nesses pedidos, sem abrir brecha de CSRF: o CSRF depende de o navegador mandar o cookie sozinho, e um site de fora não tem como pôr a chave no pedido (e, mesmo que mande uma chave qualquer junto com o cookie, o cookie é ignorado). As rotas da conta recusam a chave, e a criação de chaves trava a linha da conta (`FOR UPDATE`) para dois pedidos juntos não passarem do limite de 5. A tabela é criada com `CREATE TABLE IF NOT EXISTS` na primeira vez que o servidor sobe, sem migração manual, e some em cascata com a conta.
 - **Demo e usuários no mesmo banco, sem se misturar:** a limpeza diária apaga só contas de demonstração (`tipo = 'demo'`); o id das contas de usuário (`u_...`) nem tem o formato aceito pelo cookie da demo, e mesmo assim a demo confere o tipo da conta antes de abri-la. Cada uma dessas proteções tem um teste que falha se ela for removida (conferido quebrando o código de propósito).
 - **Postgres na versão online, SQLite no computador:** a Vercel roda o servidor em várias cópias ao mesmo tempo, cada uma com a própria pasta temporária. A primeira versão da demo guardava um SQLite por visitante nessa pasta, e os pedidos simultâneos da página caíam em cópias diferentes: um gasto apagado "voltava". Com um Postgres só, todas as cópias enxergam o mesmo. O `BancoPostgres` tem os mesmos métodos do `Banco` em SQLite, e as rotas funcionam com qualquer um; um mesmo conjunto de testes roda nos dois para garantir que se comportam igual. O defeito foi reproduzido localmente com `uvicorn --workers 4` e confirmado como resolvido.
 - **Uma conta por visitante:** toda linha do Postgres tem a coluna `conta`, e toda consulta filtra por ela, então um visitante não vê nem altera o gasto de outro, mesmo sabendo o número (há teste para isso). A conta vem de um cookie `HttpOnly` com um número aleatório (`uuid4`), conferido por expressão regular. É a mesma estrutura que um login precisaria.
@@ -335,4 +357,5 @@ controle-gastos/
 - [x] Página inicial (lobby) com desenhos de finanças deslizando ao fundo
 - [x] Colocar a versão web no ar (Vercel)
 - [x] Contas de usuário com login
+- [x] Chaves de acesso para o bot do Telegram lançar gastos
 - [x] Importar o CSV do Nubank pela página, com prévia e categorias editáveis

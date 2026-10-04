@@ -783,6 +783,82 @@ async function excluirConta(evento) {
   }
 }
 
+// ---------- Chaves de acesso (na janela da conta) ----------
+
+// "2026-10-04T17:50:00-03:00" vira "04/10/2026" (no fuso de quem está vendo).
+function dataDaChave(momento) {
+  const data = new Date(momento);
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  return `${String(data.getDate()).padStart(2, "0")}/${mes}/${data.getFullYear()}`;
+}
+
+async function carregarChaves() {
+  $("#erro-chaves").hidden = true;
+  try {
+    desenharChaves(await api("/conta/chaves"));
+  } catch (erro) {
+    mostrarErro("#erro-chaves", erro.message);
+  }
+}
+
+function desenharChaves(chaves) {
+  $("#chaves-lista").replaceChildren(
+    ...chaves.map((chave) => {
+      const usada = chave.usada_em ? `usada em ${dataDaChave(chave.usada_em)}` : "nunca usada";
+      const remover = botaoIcone("remover", `Apagar a chave ${chave.nome}`, () => apagarChave(chave));
+      return el("li", {},
+        el("span", {}, chave.nome, el("span", {
+          class: "chaves__datas", text: `criada em ${dataDaChave(chave.criada_em)} · ${usada}`,
+        })),
+        remover);
+    }),
+  );
+}
+
+async function criarChave(evento) {
+  evento.preventDefault();
+  const campo = $("#campo-chave-nome");
+  if (!campo.value.trim()) return mostrarErro("#erro-chaves", "Dê um nome à chave (ex.: Bot do Telegram).");
+  try {
+    const chave = await api("/conta/chaves", { method: "POST", body: JSON.stringify({ nome: campo.value }) });
+    campo.value = "";
+    $("#chave-token").textContent = chave.token;
+    $("#botao-copiar-chave").textContent = "Copiar";
+    $("#chave-nova").hidden = false;
+    await carregarChaves();
+  } catch (erro) {
+    mostrarErro("#erro-chaves", erro.message);
+  }
+}
+
+async function apagarChave(chave) {
+  if (!confirm(`Apagar a chave "${chave.nome}"? O programa que a usa para de funcionar.`)) return;
+  try {
+    await api(`/conta/chaves/${chave.id}`, { method: "DELETE" });
+    await carregarChaves();
+  } catch (erro) {
+    mostrarErro("#erro-chaves", erro.message);
+  }
+}
+
+async function copiarChave() {
+  const botao = $("#botao-copiar-chave");
+  try {
+    await navigator.clipboard.writeText($("#chave-token").textContent);
+    botao.textContent = "Copiada";
+  } catch {
+    // Sem permissão para a área de transferência: seleciona o texto para copiar à mão.
+    getSelection().selectAllChildren($("#chave-token"));
+    botao.textContent = "Selecione e copie";
+  }
+}
+
+function esconderChaveNova() {
+  // Fechou a janela: a chave some da página (quem não copiou cria outra).
+  $("#chave-token").textContent = "";
+  $("#chave-nova").hidden = true;
+}
+
 function iniciarConta() {
   $("#botao-entrar").addEventListener("click", abrirJanelaEntrar);
   // Do lobby, vai para as abas e já abre a janela: depois de entrar, a página recarrega
@@ -799,8 +875,13 @@ function iniciarConta() {
   $("#botao-conta").addEventListener("click", () => {
     $("#form-excluir").reset();
     $("#erro-excluir").hidden = true;
+    $("#form-chave").reset();
     $("#janela-conta").showModal();
+    carregarChaves();
   });
+  $("#janela-conta").addEventListener("close", esconderChaveNova);
+  $("#form-chave").addEventListener("submit", criarChave);
+  $("#botao-copiar-chave").addEventListener("click", copiarChave);
   document.querySelectorAll(".aba-janela").forEach((aba) =>
     aba.addEventListener("click", () => trocarModo(aba.dataset.modo)));
   document.querySelectorAll("[data-fechar]").forEach((botao) =>

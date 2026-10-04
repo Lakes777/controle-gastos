@@ -7,7 +7,7 @@ Os valores em reais saem como texto ("45.90"), não como número: no JSON, um
 número vira float no JavaScript e poderia perder centavos.
 """
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
@@ -205,3 +205,27 @@ class InfoSessao(BaseModel):
     demo: bool = Field(description="Quem está usando é um visitante da demonstração")
     email: str | None = Field(description="E-mail do usuário logado, se houver")
     cadastro: bool = Field(description="Dá para criar conta (o servidor tem código de convite)")
+
+
+# ---------- Chaves de acesso ----------
+
+
+class ChaveNova(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    nome: str = Field(
+        min_length=1, max_length=60, description='Para lembrar onde a chave é usada (ex.: "Bot do Telegram")'
+    )
+
+
+class ChaveSalva(BaseModel):
+    """Uma chave na lista: nunca traz o token, só o nome e as datas."""
+
+    id: int
+    nome: str
+    criada_em: datetime
+    usada_em: datetime | None = Field(description="Último pedido feito com a chave (null: nunca usada)")
+
+
+class ChaveCriada(ChaveSalva):
+    token: str = Field(description="A chave em si. Aparece só agora: o servidor guarda apenas o hash dela")
