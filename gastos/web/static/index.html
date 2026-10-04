@@ -380,6 +380,30 @@
     </div>
     <p class="janela__nota">Conectado como <strong id="conta-email"></strong>.</p>
     <button class="botao botao--fantasma botao--largo" type="button" id="botao-sair">Sair</button>
+    <!-- Chaves de acesso: para um programa seu (como um bot) lançar gastos sem a sua senha -->
+    <section class="chaves" aria-labelledby="titulo-chaves">
+      <h3 class="chaves__titulo" id="titulo-chaves">Chaves de acesso</h3>
+      <p class="janela__nota">
+        Para um programa seu (como um bot do Telegram) registrar gastos sem a sua senha.
+        Ele manda a chave no cabeçalho <code>Authorization: Bearer</code>.
+      </p>
+      <ul class="chaves__lista" id="chaves-lista"></ul>
+      <div class="chaves__nova" id="chave-nova" hidden>
+        <p class="chaves__aviso">
+          Copie a chave agora: ela <strong>não aparece de novo</strong>. Se perder, apague e crie outra.
+        </p>
+        <div class="chaves__token">
+          <code id="chave-token"></code>
+          <button class="botao botao--pequeno" type="button" id="botao-copiar-chave">Copiar</button>
+        </div>
+      </div>
+      <form class="chaves__form" id="form-chave" novalidate>
+        <input class="campo campo--pequeno" id="campo-chave-nome" maxlength="60"
+               placeholder="Nome, ex.: Bot do Telegram" aria-label="Nome da chave" required>
+        <button class="botao botao--pequeno botao--fantasma" type="submit">Criar chave</button>
+      </form>
+      <p class="janela__erro" id="erro-chaves" role="alert" hidden></p>
+    </section>
     <details class="janela__perigo">
       <summary>Excluir minha conta</summary>
       <form class="janela__form" id="form-excluir" novalidate>
