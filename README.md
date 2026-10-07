@@ -1,6 +1,6 @@
 # Spendwise
 
-[![Testes](https://github.com/Lakes777/controle-gastos/actions/workflows/testes.yml/badge.svg)](https://github.com/Lakes777/controle-gastos/actions/workflows/testes.yml)
+[![Testes](https://github.com/Lakes777/spendwise/actions/workflows/testes.yml/badge.svg)](https://github.com/Lakes777/spendwise/actions/workflows/testes.yml)
 
 **Spendwise · controle de gastos.** Aplicativo para registrar e acompanhar gastos pessoais: na linha de comando, em Python puro, ou no navegador, com uma API em FastAPI.
 
@@ -46,8 +46,8 @@ TOTAL             R$ 960,20
 Requer **Python 3.10+**. A linha de comando não tem dependências externas; só a versão web precisa do FastAPI.
 
 ```bash
-git clone https://github.com/Lakes777/controle-gastos.git
-cd controle-gastos
+git clone https://github.com/Lakes777/spendwise.git
+cd spendwise
 ```
 
 ## Como usar

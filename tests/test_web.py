@@ -333,7 +333,7 @@ def test_lobby_abre_na_raiz_sem_login(cliente):
     assert 'href="#resumo" id="lobby-comecar"' in html
     # "Entrar na minha conta" só aparece pelo JavaScript, na versão online sem login
     assert re.search(r'<button[^>]*id="lobby-entrar"[^>]*\bhidden\b', html)
-    assert "https://github.com/Lakes777/controle-gastos" in html
+    assert "https://github.com/Lakes777/spendwise" in html
     # O nome no topo do app volta para o lobby
     assert 'id="link-lobby" href="/"' in html or 'href="/" id="link-lobby"' in html
 
