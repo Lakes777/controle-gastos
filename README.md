@@ -4,7 +4,7 @@
 
 **Spendwise · controle de gastos.** Aplicativo para registrar e acompanhar gastos pessoais: na linha de comando, em Python puro, ou no navegador, com uma API em FastAPI.
 
-**Ver ao vivo:** https://controle-gastos-lakes777.vercel.app (demonstração com dados de exemplo, só seus)
+**Ver ao vivo:** https://spendwisealp.vercel.app (demonstração com dados de exemplo, só seus)
 
 ![Demonstração do Spendwise no terminal: adicionar, listar, editar, gráficos e exportar para Excel](docs/demo.gif)
 
@@ -220,13 +220,13 @@ Para um programa seu (um bot do Telegram, um script) usar a API online sem guard
 O programa manda a chave no cabeçalho `Authorization` e usa as mesmas rotas da página (gastos, resumo, categorias, orçamentos, recorrentes, importação), sempre na conta dona da chave:
 
 ```bash
-curl -X POST https://controle-gastos-lakes777.vercel.app/gastos \
+curl -X POST https://spendwisealp.vercel.app/gastos \
   -H "Authorization: Bearer sw_..." \
   -H "Content-Type: application/json" \
   -d '{"valor": "35.00", "categoria": "mercado", "descricao": "pão e leite"}'
 # 201: {"id": 42, "valor": "35.00", "categoria": "mercado", "descricao": "pão e leite", "data": "2026-10-04"}
 
-curl https://controle-gastos-lakes777.vercel.app/categorias -H "Authorization: Bearer sw_..."
+curl https://spendwisealp.vercel.app/categorias -H "Authorization: Bearer sw_..."
 # 200: ["alimentação", "mercado", "transporte"]
 ```
 
