@@ -321,9 +321,6 @@ def test_pagina_marca_o_javascript_antes_do_app_js(cliente):
 
 # ---------- Lobby (tela de entrada) ----------
 
-PRANCHAS = ["barras", "rosca", "recibo", "moedas", "cartao", "calendario"]
-
-
 def test_lobby_abre_na_raiz_sem_login(cliente):
     pagina = cliente.get("/")
     assert pagina.status_code == 200
@@ -356,30 +353,27 @@ def test_lobby_tem_um_h1_e_o_topo_com_menu_fica(cliente):
     assert 'classList.add("em-lobby")' in cabecalho
 
 
-@pytest.mark.parametrize("nome", PRANCHAS)
-def test_pranchas_do_fundo_sao_servidas(cliente, nome):
-    resposta = cliente.get(f"/static/pranchas/{nome}.svg")
-    assert resposta.status_code == 200
-    assert resposta.headers["content-type"].startswith("image/svg+xml")
-    svg = resposta.text
-    assert 'viewBox="0 0 520 300"' in svg
-    # Desenho de traço, leve: nada de imagem embutida nem script
-    assert "<image" not in svg and "<script" not in svg
-    assert len(svg.encode()) < 12_000
+def test_lobby_e_uma_cedula(cliente):
+    html = cliente.get("/").text
+    lobby = html.split('id="lobby"')[1].split("</section>")[0]
+    # A cédula com número de série, o selo (decorativo, escondido do leitor de tela)
+    # e as vantagens numeradas embaixo
+    assert 'class="nota ' in lobby and 'class="nota__serie"' in lobby
+    assert re.search(r'class="nota__selo"[^>]*aria-hidden="true"', lobby)
+    assert lobby.count('class="destaque__numero"') == 3
+    # As faixas de desenhos saíram junto com as pranchas
+    assert "prancha" not in html
+    assert cliente.get("/static/pranchas/barras.svg").status_code == 404
 
 
-def test_o_app_js_conhece_todas_as_pranchas(cliente):
-    js = cliente.get("/static/app.js").text
-    for nome in PRANCHAS:
-        assert f'"{nome}"' in js
-
-
-def test_faixas_do_lobby_param_com_menos_movimento(cliente):
+def test_rosetas_e_selo_param_com_menos_movimento_e_aba_escondida(cliente):
     css = cliente.get("/static/estilo.css").text
-    assert "@keyframes deslizar" in css
-    assert "translate3d(-50%, 0, 0)" in css
+    assert "@keyframes girar" in css
+    assert ".lobby--pausado .nota__anel" in css
     menos_movimento = css.split("@media (prefers-reduced-motion: reduce)")[1]
     assert "animation: none !important" in menos_movimento
+    js = cliente.get("/static/app.js").text
+    assert "lobby--pausado" in js
 
 
 # ---------- Importação do Nubank ----------

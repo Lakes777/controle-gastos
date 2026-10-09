@@ -924,32 +924,6 @@ function moverPilula() {
 
 const lobby = $("#lobby");
 const raiz = document.documentElement;
-const PRANCHAS = ["barras", "rosca", "recibo", "moedas", "cartao", "calendario"];
-
-// Fundo do lobby: três faixas com as pranchas repetidas duas vezes (o CSS anda metade do
-// trilho e recomeça sem emenda). As imagens só entram quando o lobby aparece; quem abre
-// direto numa aba nem baixa os desenhos.
-function montarFundo() {
-  const fundo = $("#lobby-fundo");
-  if (fundo.childElementCount) return;
-  // Cada metade do trilho precisa ser mais larga que a tela, senão abre um vão no fim
-  // da volta em monitores largos (2560 px, ultrawide, zoom reduzido): o conjunto de
-  // 6 pranchas tem ~2300 px, então repete quantas vezes a tela pedir
-  const repeticoes = Math.max(1, Math.ceil(Math.max(screen.width, innerWidth) / 2200));
-  for (let f = 0; f < 3; f++) {
-    // Cada faixa começa numa prancha diferente, para as três não andarem iguais
-    const ordem = PRANCHAS.map((_, i) => PRANCHAS[(i + f * 2) % PRANCHAS.length]);
-    const metade = Array.from({ length: repeticoes }, () => ordem).flat();
-    const trilho = el("div", { class: "faixa__trilho" });
-    for (const nome of [...metade, ...metade]) {
-      trilho.append(el("img", {
-        class: "prancha", src: `/static/pranchas/${nome}.svg`, alt: "", "aria-hidden": "true",
-        width: "520", height: "300", decoding: "async", draggable: "false",
-      }));
-    }
-    fundo.append(el("div", { class: "faixa" }, trilho));
-  }
-}
 
 // O nome no topo volta ao lobby sem recarregar a página (o endereço fica sem hash)
 function irParaLobby(evento) {
@@ -1020,9 +994,7 @@ function mostrarAba(focar) {
     else moverPilula();
     // No celular a barra rola de lado: traz o item escolhido para a vista.
     document.querySelector(".abas__link--ativo")?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    if (noLobby) {
-      montarFundo();
-    } else {
+    if (!noLobby) {
       abas.forEach((aba) => {
         aba.hidden = aba !== atual;
       });
@@ -1073,7 +1045,7 @@ function iniciarAbas() {
   });
   $("#link-lobby").addEventListener("click", irParaLobby);
   $("#link-inicio").addEventListener("click", irParaLobby);
-  // Com a aba do navegador escondida, as faixas do lobby param de andar
+  // Com a aba do navegador escondida, as rosetas e o selo do lobby param de girar
   document.addEventListener("visibilitychange", () =>
     lobby.classList.toggle("lobby--pausado", document.hidden));
   mostrarAba(false);

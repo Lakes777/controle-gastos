@@ -51,64 +51,56 @@
     </div>
   </header>
 
-  <!-- Lobby: a tela de entrada, no endereço sem hash. O app.js troca entre ela e as abas. -->
+  <!-- Lobby: a tela de entrada, no endereço sem hash. O app.js troca entre ela e as abas.
+       É uma cédula: número de série, nome grande, selo de moeda com texto girando devagar
+       e o padrão de linhas finas (guilhochê); atrás, duas rosetas de latão girando. -->
   <section class="lobby" id="lobby" aria-labelledby="lobby-titulo">
-    <!-- Fundo: três faixas de desenhos (pastas static/pranchas) que deslizam devagar.
-         O app.js põe as imagens só quando o lobby aparece. -->
-    <div class="lobby__fundo" id="lobby-fundo" aria-hidden="true"></div>
+    <div class="lobby__rosetas" aria-hidden="true"></div>
 
     <div class="container lobby__conteudo">
-      <p class="lobby__selo reveal" data-grupo="0">Controle de gastos · Python e FastAPI</p>
-      <h1 class="lobby__titulo reveal" id="lobby-titulo" tabindex="-1" data-grupo="0">Spendwise</h1>
-      <p class="lobby__frase reveal" data-grupo="1">
-        Registre o que gastou, acompanhe o limite de cada categoria e veja para onde foi o
-        dinheiro do mês. No navegador ou no terminal, com os mesmos dados.
-      </p>
+      <div class="nota reveal" data-grupo="0">
+        <div class="nota__texto">
+          <p class="nota__serie"><span aria-hidden="true">SW · 2026 · Nº 0001</span><span>Python · FastAPI</span></p>
+          <h1 class="lobby__titulo" id="lobby-titulo" tabindex="-1">Spendwise</h1>
+          <p class="lobby__frase">
+            Registre o que gastou, acompanhe o limite de cada categoria e veja para onde foi o
+            dinheiro do mês. No navegador ou no terminal, com os mesmos dados.
+          </p>
+          <div class="lobby__acoes">
+            <a class="botao botao--grande botao--vivo" href="#resumo" id="lobby-comecar">Começar</a>
+            <!-- Só na versão online, para quem ainda não entrou (GET /info) -->
+            <button class="botao botao--grande botao--fantasma" type="button" id="lobby-entrar" hidden>Entrar na minha conta</button>
+          </div>
+          <!-- Diz o que o Começar abre: a demonstração, a conta de quem entrou ou os dados do computador -->
+          <p class="lobby__nota" id="lobby-nota" hidden></p>
+        </div>
 
-      <!-- Ícones da Lucide (lucide.dev, licença ISC) -->
-      <ul class="destaques reveal" data-grupo="2">
-        <li class="destaque spot">
-          <svg class="destaque__icone" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
-            <path d="M12 12v6"/><path d="m15 15-3-3-3 3"/>
+        <!-- Selo: o texto gira em volta da moeda (parado com "menos animação") -->
+        <div class="nota__selo" aria-hidden="true">
+          <svg class="nota__anel" viewBox="0 0 210 210">
+            <defs><path id="selo-circulo" d="M105 105 m-88 0 a88 88 0 1 1 176 0 a88 88 0 1 1 -176 0"/></defs>
+            <text><textPath href="#selo-circulo">CONTROLE DE GASTOS · IMPORTA OFX · ORÇAMENTO · EXCEL · </textPath></text>
           </svg>
-          <h2 class="destaque__titulo">Importa o extrato</h2>
-          <p class="destaque__texto">CSV do Nubank ou OFX de qualquer banco, sem nunca repetir um gasto.</p>
-        </li>
-        <li class="destaque spot">
-          <svg class="destaque__icone" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+          <svg viewBox="0 0 210 210" fill="none" stroke="currentColor" stroke-linecap="round">
+            <circle cx="105" cy="105" r="72" stroke-width="1.2"/>
+            <circle cx="105" cy="105" r="62" stroke-dasharray="2 3"/>
+            <path d="M123 82c-4-5-10-8-17-8-10 0-16 5-16 13 0 17 34 10 34 27 0 8-7 14-18 14-8 0-15-3-19-9M106 64v10M106 134v10" stroke-width="5"/>
           </svg>
-          <h2 class="destaque__titulo">Orçamento com alertas</h2>
-          <p class="destaque__texto">Um limite por categoria; avisa aos 80% e quando estoura.</p>
-        </li>
-        <li class="destaque spot">
-          <svg class="destaque__icone" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
-            <path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 9v12"/><path d="M15 9v12"/>
-          </svg>
-          <h2 class="destaque__titulo">Exporta para Excel e CSV</h2>
-          <p class="destaque__texto">Planilha com valores em R$, datas de verdade e linha de total.</p>
-        </li>
-      </ul>
-
-      <div class="lobby__acoes reveal" data-grupo="3">
-        <a class="botao botao--grande botao--vivo" href="#resumo" id="lobby-comecar">Começar</a>
-        <!-- Só na versão online, para quem ainda não entrou (GET /info) -->
-        <button class="botao botao--grande botao--fantasma" type="button" id="lobby-entrar" hidden>Entrar na minha conta</button>
-        <a class="lobby__codigo" href="https://github.com/Lakes777/spendwise" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>
-          </svg>
-          Ver o código no GitHub
-        </a>
+        </div>
       </div>
-      <!-- Diz o que o Começar abre: a demonstração, a conta de quem entrou ou os dados do computador -->
-      <p class="lobby__nota reveal" id="lobby-nota" data-grupo="3" hidden></p>
+
+      <ul class="destaques reveal" data-grupo="1">
+        <li><span class="destaque__numero">01</span>Importa o extrato (OFX de qualquer banco e CSV do Nubank)</li>
+        <li><span class="destaque__numero">02</span>Orçamento com alertas aos 80% e ao estourar</li>
+        <li><span class="destaque__numero">03</span>Exporta para Excel e CSV</li>
+      </ul>
+      <a class="lobby__codigo reveal" data-grupo="1" href="https://github.com/Lakes777/spendwise" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>
+        </svg>
+        Ver o código no GitHub
+      </a>
     </div>
   </section>
 

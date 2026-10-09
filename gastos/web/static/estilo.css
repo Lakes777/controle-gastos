@@ -9,7 +9,7 @@
   --text-muted: #8c9a93;
 
   /* Latão: a cor de destaque (marca, botões, foco, links). O menta é o tom secundário:
-     barras, etiquetas de categoria, guilhochê e detalhes dos desenhos do lobby. */
+     barras, etiquetas de categoria e guilhochê. */
   --accent: #c9a25e;
   --accent-dark: #7a6235;
   --menta: #7cc4a0;
@@ -176,112 +176,107 @@ select:focus-visible {
   isolation: isolate;
 }
 
-/* Fundo: três faixas de pranchas, cada uma deslizando de lado numa velocidade */
-.lobby__fundo {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding-block: 3vh;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.faixa {
-  overflow: hidden;
-}
-
-/* O conjunto de pranchas vai duas vezes no trilho: ao andar metade (-50%), a segunda
-   cópia está exatamente onde a primeira começou, e a volta recomeça sem emenda */
-.faixa__trilho {
-  display: flex;
-  width: max-content;
-  animation: deslizar 64s linear infinite;
-  will-change: transform;
-}
-
-.faixa:nth-child(2) .faixa__trilho {
-  animation-duration: 78s;
-  animation-direction: reverse;
-}
-
-.faixa:nth-child(3) .faixa__trilho {
-  animation-duration: 96s;
-}
-
-/* Com a aba do navegador escondida, as faixas param (classe posta pelo app.js) */
-.lobby--pausado .faixa__trilho {
-  animation-play-state: paused;
-}
-
-/* Espaço por padding (e não gap): assim as duas metades do trilho têm a mesma largura */
-.prancha {
-  display: block;
-  width: 360px;
-  height: auto;
-  padding-right: 28px;
-  box-sizing: content-box;
-  opacity: 0.16;
-  user-select: none;
-}
-
-@keyframes deslizar {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
-}
-
-/* Por cima das faixas: escurecido no centro (para o texto ler bem), grade fina e granulado */
-.lobby::before,
-.lobby::after {
-  content: "";
+/* Fundo: duas rosetas de raios finos de latão, girando devagar em sentidos opostos */
+.lobby__rosetas {
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
 }
 
-.lobby::before {
-  background:
-    radial-gradient(ellipse 70% 65% at 50% 50%, rgb(15 23 20 / 0.94) 20%, rgb(15 23 20 / 0.7) 60%, rgb(15 23 20 / 0.35)),
-    linear-gradient(rgb(231 233 228 / 0.025) 1px, transparent 1px) 0 0 / 48px 48px,
-    linear-gradient(90deg, rgb(231 233 228 / 0.025) 1px, transparent 1px) 0 0 / 48px 48px;
+.lobby__rosetas::before,
+.lobby__rosetas::after {
+  content: "";
+  position: absolute;
+  width: 900px;
+  height: 900px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgb(201 162 94 / 0.05) 0 0.5deg, transparent 0.5deg 3deg);
+  -webkit-mask: radial-gradient(circle, transparent 30%, #000 31%, #000 70%, transparent 71%);
+  mask: radial-gradient(circle, transparent 30%, #000 31%, #000 70%, transparent 71%);
+  animation: girar 240s linear infinite;
 }
 
-.lobby::after {
-  opacity: 0.05;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+.lobby__rosetas::before {
+  left: -380px;
+  top: -200px;
+}
+
+.lobby__rosetas::after {
+  right: -420px;
+  bottom: -460px;
+  animation-direction: reverse;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Com a aba do navegador escondida, nada gira (classe posta pelo app.js) */
+.lobby--pausado .lobby__rosetas::before,
+.lobby--pausado .lobby__rosetas::after,
+.lobby--pausado .nota__anel {
+  animation-play-state: paused;
 }
 
 .lobby__conteudo {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-block: 64px;
-  text-align: center;
+  gap: 32px;
+  padding-block: 48px;
 }
 
-.lobby__selo {
-  margin: 0 0 16px;
+/* A cédula: filete de latão por dentro (box-shadow) e guilhochê dentro do filete */
+.nota {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+  align-items: center;
+  gap: 24px;
+  width: min(860px, 100%);
+  min-height: 400px;
+  padding: 30px 38px;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--surface);
+  border: 1px solid rgb(201 162 94 / 0.45);
+  border-radius: 18px;
+  box-shadow:
+    0 30px 80px rgb(0 0 0 / 0.45),
+    inset 0 0 0 10px var(--surface),
+    inset 0 0 0 11px rgb(201 162 94 / 0.3);
+}
+
+.nota::before {
+  content: "";
+  position: absolute;
+  inset: 11px;
+  z-index: -1;
+  border-radius: 10px;
+  background: repeating-radial-gradient(circle at 105% 50%, transparent 0 11px, rgb(124 196 160 / 0.1) 11px 12px);
+}
+
+.nota__serie {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
   color: var(--accent);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .lobby__titulo {
-  margin: 0;
+  margin: 22px 0 10px;
   font-family: var(--serif);
-  font-size: clamp(3.2rem, 10vw, 6rem);
+  font-size: clamp(3.4rem, 9vw, 5.75rem);
   font-weight: 400;
-  line-height: 1;
-  letter-spacing: 0.005em;
+  line-height: 0.95;
 }
 
 .lobby__titulo:focus {
@@ -289,68 +284,66 @@ select:focus-visible {
 }
 
 .lobby__frase {
-  max-width: 580px;
-  margin: 18px 0 0;
+  max-width: 420px;
+  margin: 0;
   color: var(--text-muted);
-  font-size: 1.1rem;
 }
 
-.destaques {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  width: min(900px, 100%);
-  margin: 40px 0 0;
-  padding: 0;
-  list-style: none;
-  text-align: left;
-}
-
-/* Cartões que saltam um pouco com o mouse, como no portfólio */
-.destaque {
-  padding: 18px 20px;
-  background: rgb(21 32 28 / 0.82);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  transition: transform 0.25s var(--ease-out), border-color 0.25s;
-}
-
-.destaque__icone {
-  display: block;
+.nota__selo {
+  position: relative;
+  width: 210px;
+  aspect-ratio: 1;
   color: var(--accent);
 }
 
-.destaque__titulo {
-  margin: 12px 0 4px;
-  font-family: var(--serif);
-  font-size: 1.3rem;
-  font-weight: 400;
+.nota__selo svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
-.destaque__texto {
+.nota__anel {
+  animation: girar 60s linear infinite;
+}
+
+.nota__anel text {
+  fill: var(--accent);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 3.2px;
+}
+
+/* As vantagens numa linha numerada, embaixo da cédula */
+.destaques {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 34px;
   margin: 0;
+  padding: 0;
+  list-style: none;
   color: var(--text-muted);
-  font-size: 0.92rem;
+  font-size: 0.85rem;
 }
 
-@media (hover: hover) {
-  .destaque:hover {
-    transform: translateY(-4px);
-  }
+.destaque__numero {
+  margin-right: 8px;
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .lobby__acoes {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 14px 18px;
-  margin-top: 36px;
+  gap: 12px;
+  margin-top: 26px;
 }
 
 /* ".lobby" na frente: o .botao (mais abaixo no arquivo) não desfaz o tamanho */
 .lobby .botao--grande {
-  padding: 12px 30px;
+  padding: 12px 28px;
   border-radius: 999px;
   font-size: 1rem;
 }
@@ -370,6 +363,8 @@ select:focus-visible {
   align-items: center;
   gap: 6px;
   color: var(--text-muted);
+  /* Fica logo abaixo das vantagens (desconta parte do gap do .lobby__conteudo) */
+  margin-top: -16px;
   font-family: var(--mono);
   font-size: 0.85rem;
   text-decoration: none;
@@ -381,7 +376,7 @@ select:focus-visible {
 }
 
 .lobby__nota {
-  margin: 18px 0 0;
+  margin: 14px 0 0;
   color: var(--text-muted);
   font-size: 0.85rem;
 }
@@ -391,59 +386,41 @@ select:focus-visible {
   font-weight: 600;
 }
 
+/* No celular a cédula fica em pé: o selo, menor, sobe para o canto de cima */
 @media (max-width: 760px) {
-  .destaques {
+  .nota {
     grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-    margin-top: 28px;
+    min-height: 0;
+    padding: 26px 24px 28px;
   }
 
-  .destaque {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 2px 14px;
-    padding: 14px 16px;
+  .nota__selo {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 96px;
+    opacity: 0.55;
   }
 
-  .destaque__icone {
-    grid-row: span 2;
-    margin-top: 2px;
+  .nota__serie span:last-child {
+    display: none;
   }
 
-  .destaque__titulo {
-    margin: 0;
+  .lobby__titulo {
+    margin-top: 72px;
   }
 
-  .prancha {
-    width: 220px;
-    padding-right: 18px;
+  .destaques {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
   }
 }
 
 @media (max-width: 480px) {
   .lobby__conteudo {
-    padding-block: 32px;
-  }
-
-  .lobby__selo {
-    font-size: 0.8rem;
-  }
-
-  .lobby__frase {
-    margin-top: 14px;
-    font-size: 1rem;
-  }
-
-  .destaque {
-    padding: 12px 14px;
-  }
-
-  .destaque__texto {
-    font-size: 0.88rem;
-  }
-
-  .lobby__acoes {
-    margin-top: 28px;
+    padding-block: 24px;
+    gap: 24px;
   }
 
   .lobby__acoes .botao {
@@ -1627,7 +1604,6 @@ select:focus-visible {
 .reveal[data-grupo="0"] { --grupo: 0; }
 .reveal[data-grupo="1"] { --grupo: 1; }
 .reveal[data-grupo="2"] { --grupo: 2; }
-.reveal[data-grupo="3"] { --grupo: 3; }
 
 @keyframes surgir {
   from {
@@ -1747,8 +1723,7 @@ select:focus-visible {
     animation: mostrar-sem-abas 0s linear 4s forwards !important;
   }
 
-  /* As faixas do lobby ficam paradas, e nada sobe com o mouse */
-  .destaque:hover,
+  /* Nada sobe com o mouse (as rosetas e o selo já param pelo "animation: none" acima) */
   .botao.botao--vivo:hover {
     transform: none;
   }

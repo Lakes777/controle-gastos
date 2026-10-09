@@ -37,7 +37,7 @@ TOTAL             R$ 960,20
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
 - **Contas de usuário na versão online:** cadastro com código de convite, login com senha em argon2id, sessões que podem ser encerradas e exclusão da conta com todos os dados
 - **Chaves de acesso** para programas seus (como um bot do Telegram) registrarem gastos pela API sem a sua senha: criadas na janela da conta, mostradas uma vez só e apagáveis a qualquer momento
-- **Versão web** (FastAPI + HTML/CSS/JS): página inicial com desenhos de finanças deslizando ao fundo, formulário, lista com editar/remover, gráfico por categoria, orçamento, recorrentes, importação de extratos com prévia e download do .xlsx, usando o mesmo banco do terminal
+- **Versão web** (FastAPI + HTML/CSS/JS): página inicial em forma de cédula (número de série, selo girando e guilhochê), formulário, lista com editar/remover, gráfico por categoria, orçamento, recorrentes, importação de extratos com prévia e download do .xlsx, usando o mesmo banco do terminal
 - Dados salvos localmente num banco SQLite, fora do controle de versão
 - Quem usava a versão antiga (JSON) tem os gastos importados automaticamente
 
@@ -281,7 +281,7 @@ controle-gastos/
 │       ├── demo.py       # modo demonstração: uma conta com exemplos por visitante
 │       ├── modelos.py    # o que a API recebe e devolve (Pydantic)
 │       ├── rotas.py      # as rotas da API
-│       └── static/       # a página: index.html, estilo.css, app.js e pranchas/ (desenhos do lobby)
+│       └── static/       # a página: index.html, estilo.css, app.js e favicon.svg
 ├── app.py                # entrada da Vercel (modo demonstração com Postgres)
 ├── vercel.json           # o que não vai para o servidor (testes, docs)
 └── tests/                # testes com pytest
@@ -354,7 +354,8 @@ controle-gastos/
 - [x] Lembrar a categoria já usada na mesma loja ao importar
 - [ ] Conferir o OFX de outros bancos (Itaú, Nubank) com arquivos reais (e se as descrições deles dizem a loja)
 - [x] Versão web com API REST (FastAPI)
-- [x] Página inicial (lobby) com desenhos de finanças deslizando ao fundo
+- [x] Página inicial (lobby)
+- [x] Identidade visual própria ("Cédula") e página inicial em forma de cédula
 - [x] Colocar a versão web no ar (Vercel)
 - [x] Contas de usuário com login
 - [x] Chaves de acesso para o bot do Telegram lançar gastos
