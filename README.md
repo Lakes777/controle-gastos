@@ -171,7 +171,7 @@ Orçamento de mercado em set/2026: R$ 420,00 de R$ 500,00 (84%) - ATENÇÃO: sob
 
 ## Versão web
 
-![Lobby do Spendwise: nome em destaque, três vantagens e os botões Começar e Entrar na minha conta](docs/lobby.png)
+![Lobby do Spendwise em forma de cédula: número de série, nome em destaque, selo de moeda, os botões Começar e Entrar na minha conta e as três vantagens numeradas](docs/lobby.png)
 
 ![Aba Resumo do Spendwise na versão web: total do mês em destaque, gráfico por categoria e últimos gastos](docs/web.png)
 
