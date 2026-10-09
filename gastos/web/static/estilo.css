@@ -1,20 +1,27 @@
-/* Tons de cinza-grafite, neutros e sóbrios; o verde do projeto fica só nos destaques */
+/* Identidade "Cédula": verde-escuro de nota de dinheiro, filete de latão e serifa fina nos títulos */
 :root {
-  --bg: #0d0e10;
-  --surface: #16171a;
-  --surface-hover: #1e1f23;
-  --border: #2a2c31;
+  --bg: #0f1714;
+  --surface: #15201c;
+  --surface-hover: #1b2924;
+  --border: #2a3b34;
 
-  --text: #e4e5e7;
-  --text-muted: #8e9199;
+  --text: #e7e9e4;
+  --text-muted: #8c9a93;
 
-  --accent: #66bb6a;
-  --accent-dark: #2a7330;
-  --atencao: #ffd54f;
-  --perigo: #ef9a9a;
-  --topo: #121315;
+  /* Latão: a cor de destaque (marca, botões, foco, links). O menta é o tom secundário:
+     barras, etiquetas de categoria, guilhochê e detalhes dos desenhos do lobby. */
+  --accent: #c9a25e;
+  --accent-dark: #7a6235;
+  --menta: #7cc4a0;
+  --menta-escuro: #3f7a60;
+  --atencao: #f2d16b;
+  --atencao-escuro: #8a7434;
+  --perigo: #e08872;
+  --perigo-escuro: #8a4a3c;
+  --topo: #121b18;
 
-  --font: "Inter", system-ui, sans-serif;
+  --font: "Manrope", system-ui, sans-serif;
+  --serif: "Instrument Serif", Georgia, serif;
   --mono: "Fira Code", monospace;
   --radius: 14px;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -58,7 +65,7 @@ body {
   clip-path: inset(50%);
 }
 
-/* Foco do teclado com o mesmo contorno verde em todo botão, link e caixa de abrir/fechar */
+/* Foco do teclado com o mesmo contorno de latão em todo botão, link e caixa de abrir/fechar */
 a:focus-visible,
 button:focus-visible,
 summary:focus-visible,
@@ -72,7 +79,7 @@ select:focus-visible {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: rgb(18 19 21 / 0.92);
+  background: rgb(15 23 20 / 0.92);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
@@ -87,8 +94,15 @@ select:focus-visible {
 
 .topo__titulo {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-family: var(--serif);
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.topo__logo {
+  flex-shrink: 0;
+  color: var(--accent);
 }
 
 .topo__link {
@@ -117,8 +131,11 @@ select:focus-visible {
   white-space: nowrap;
 }
 
-/* O nome no topo é um link de volta ao lobby, sem cara de link */
+/* O nome no topo é um link de volta ao lobby, sem cara de link, com o logo (moeda) ao lado */
 .topo__inicio {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   color: inherit;
   text-decoration: none;
   border-radius: 6px;
@@ -231,9 +248,9 @@ select:focus-visible {
 
 .lobby::before {
   background:
-    radial-gradient(ellipse 70% 65% at 50% 50%, rgb(13 14 16 / 0.94) 20%, rgb(13 14 16 / 0.7) 60%, rgb(13 14 16 / 0.35)),
-    linear-gradient(rgb(228 229 231 / 0.025) 1px, transparent 1px) 0 0 / 48px 48px,
-    linear-gradient(90deg, rgb(228 229 231 / 0.025) 1px, transparent 1px) 0 0 / 48px 48px;
+    radial-gradient(ellipse 70% 65% at 50% 50%, rgb(15 23 20 / 0.94) 20%, rgb(15 23 20 / 0.7) 60%, rgb(15 23 20 / 0.35)),
+    linear-gradient(rgb(231 233 228 / 0.025) 1px, transparent 1px) 0 0 / 48px 48px,
+    linear-gradient(90deg, rgb(231 233 228 / 0.025) 1px, transparent 1px) 0 0 / 48px 48px;
 }
 
 .lobby::after {
@@ -250,18 +267,21 @@ select:focus-visible {
 }
 
 .lobby__selo {
-  margin: 0 0 12px;
+  margin: 0 0 16px;
   color: var(--accent);
-  font-family: var(--mono);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .lobby__titulo {
   margin: 0;
-  font-size: clamp(2.6rem, 8vw, 4.8rem);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
+  font-family: var(--serif);
+  font-size: clamp(3.2rem, 10vw, 6rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.005em;
 }
 
 .lobby__titulo:focus {
@@ -289,7 +309,7 @@ select:focus-visible {
 /* Cartões que saltam um pouco com o mouse, como no portfólio */
 .destaque {
   padding: 18px 20px;
-  background: rgb(22 23 26 / 0.82);
+  background: rgb(21 32 28 / 0.82);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   transition: transform 0.25s var(--ease-out), border-color 0.25s;
@@ -302,8 +322,9 @@ select:focus-visible {
 
 .destaque__titulo {
   margin: 12px 0 4px;
-  font-size: 1rem;
-  font-weight: 700;
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  font-weight: 400;
 }
 
 .destaque__texto {
@@ -334,14 +355,14 @@ select:focus-visible {
   font-size: 1rem;
 }
 
-/* Botão vivo (como o do portfólio): sobe um pouco e ganha um brilho verde */
+/* Botão vivo (como o do portfólio): sobe um pouco e ganha um brilho de latão */
 .botao.botao--vivo {
   transition: transform 0.2s, background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
 }
 
 .botao.botao--vivo:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgb(102 187 106 / 0.35);
+  box-shadow: 0 8px 24px rgb(201 162 94 / 0.35);
 }
 
 .lobby__codigo {
@@ -521,8 +542,8 @@ select:focus-visible {
   height: 100%;
   width: 0;
   border-radius: 999px;
-  background: rgb(228 229 231 / 0.08);
-  box-shadow: inset 0 0 0 1px rgb(228 229 231 / 0.06);
+  background: rgb(231 233 228 / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(231 233 228 / 0.06);
   pointer-events: none;
   transition: transform 0.35s var(--ease-out), width 0.35s var(--ease-out);
 }
@@ -561,8 +582,10 @@ select:focus-visible {
 
 .aba__titulo {
   margin: 0 0 20px;
-  font-size: 1.6rem;
-  font-weight: 800;
+  font-family: var(--serif);
+  font-size: 2.2rem;
+  font-weight: 400;
+  line-height: 1.15;
 }
 
 .aba__titulo:focus {
@@ -631,7 +654,9 @@ select:focus-visible {
 
 .cartao__titulo {
   margin: 0 0 14px;
-  font-size: 1.05rem;
+  font-family: var(--serif);
+  font-size: 1.4rem;
+  font-weight: 400;
 }
 
 .cartao__cabecalho .cartao__titulo {
@@ -672,20 +697,52 @@ select:focus-visible {
   overflow-wrap: anywhere;
 }
 
-/* O total do mês é o número que importa: ganha destaque */
+/* O total do mês é o número que importa: vira a "cédula", com filete de latão por dentro
+   e o padrão de linhas finas (guilhochê) das notas de dinheiro */
 .numero:first-child {
-  border-color: rgb(102 187 106 / 0.35);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-color: rgb(201 162 94 / 0.35);
+  box-shadow: inset 0 0 0 6px var(--surface), inset 0 0 0 7px rgb(201 162 94 / 0.3);
+}
+
+.numero:first-child > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* O guilhochê fica dentro do filete (inset 7px), sempre visível e atrás do texto. Aqui ele
+   ocupa o ::before que o .spot usaria para o brilho do mouse (o da borda, ::after, continua). */
+.numero:first-child::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  z-index: 0;
+  opacity: 1;
+  border-radius: 8px;
+  pointer-events: none;
+  background: repeating-radial-gradient(circle at 100% 50%, transparent 0 9px, rgb(124 196 160 / 0.13) 9px 10px);
 }
 
 .numero:first-child .numero__valor {
-  color: var(--accent);
-  font-size: 1.7rem;
-  font-weight: 800;
+  font-family: var(--serif);
+  font-size: 2.3rem;
+  font-weight: 400;
+  line-height: 1.15;
 }
 
 .numero__rotulo {
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+.numero:first-child .numero__rotulo {
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .colunas {
@@ -1096,10 +1153,10 @@ select:focus-visible {
 
 .etiqueta {
   display: inline-block;
-  background: rgb(102 187 106 / 0.1);
+  background: rgb(124 196 160 / 0.08);
   border: 1px solid var(--border);
   border-radius: 999px;
-  color: var(--accent);
+  color: var(--menta);
   font-size: 0.8rem;
   padding: 1px 10px;
   white-space: nowrap;
@@ -1134,14 +1191,14 @@ select:focus-visible {
 .trilho {
   height: 8px;
   border-radius: 999px;
-  background: rgb(228 229 231 / 0.07);
+  background: rgb(231 233 228 / 0.07);
   overflow: hidden;
 }
 
 .trilho__cheio {
   height: 100%;
   border-radius: 999px;
-  background: var(--accent);
+  background: linear-gradient(90deg, var(--menta-escuro), var(--menta));
 }
 
 /* ---------- Orçamento ---------- */
@@ -1186,9 +1243,9 @@ select:focus-visible {
 }
 
 /* A situação sempre aparece escrita; a cor só reforça. */
-.orcamento--atencao .trilho__cheio { background: var(--atencao); }
+.orcamento--atencao .trilho__cheio { background: linear-gradient(90deg, var(--atencao-escuro), var(--atencao)); }
 .orcamento--atencao .orcamento__aviso { color: var(--atencao); }
-.orcamento--estourou .trilho__cheio { background: var(--perigo); }
+.orcamento--estourou .trilho__cheio { background: linear-gradient(90deg, var(--perigo-escuro), var(--perigo)); }
 .orcamento--estourou .orcamento__aviso { color: var(--perigo); font-weight: 600; }
 .orcamento--estourou { border-color: var(--perigo); }
 
@@ -1290,7 +1347,9 @@ select:focus-visible {
 
 .janela__titulo {
   margin: 0;
-  font-size: 1.15rem;
+  font-family: var(--serif);
+  font-size: 1.6rem;
+  font-weight: 400;
 }
 
 .janela__form {
@@ -1494,9 +1553,18 @@ select:focus-visible {
     flex-basis: 100%;
   }
 
-  .numero__valor,
+  /* Encolhe com a tela: "R$ 10.500,00" cabe inteiro na metade de um celular de 360 px */
+  .numero {
+    padding: 14px 14px;
+  }
+
+  .numero__valor {
+    font-size: clamp(1rem, 4.4vw, 1.2rem);
+  }
+
+  /* A serifa fina precisa de mais tamanho para ler bem */
   .numero:first-child .numero__valor {
-    font-size: 1.2rem;
+    font-size: 1.6rem;
   }
 
   .aba__titulo {
@@ -1626,7 +1694,7 @@ select:focus-visible {
   z-index: -1;
   background: radial-gradient(
     380px circle at var(--mx, 50%) var(--my, 50%),
-    rgb(102 187 106 / 0.07),
+    rgb(201 162 94 / 0.07),
     transparent 60%
   );
 }
@@ -1636,7 +1704,7 @@ select:focus-visible {
   padding: 1px;
   background: radial-gradient(
     220px circle at var(--mx, 50%) var(--my, 50%),
-    rgb(102 187 106 / 0.55),
+    rgb(201 162 94 / 0.55),
     transparent 70%
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
