@@ -211,6 +211,37 @@ function desenharBarras(resumo) {
   );
 }
 
+// Anel do orçamento: todos os limites do mês somados. A API já devolve atenção quando uma
+// categoria estourou com o total ok (o texto diz qual foi).
+function desenharAnel(total, mes) {
+  const cartao = $("#anel-orcamento");
+  const aparecendo = cartao.hidden && Boolean(total);
+  cartao.hidden = !total;
+  if (!total) return;
+  for (const n of ["ok", "atencao", "estourou"]) {
+    cartao.classList.toggle(`anel-orcamento--${n}`, n === total.nivel);
+  }
+  $("#titulo-anel").textContent = `Orçamento de ${nomeDoMes(mes).split(" ")[0]}`;
+  $("#anel-porcentagem").textContent = `${total.porcentagem}%`;
+  const categorias = total.categorias === 1 ? "1 categoria" : `${total.categorias} categorias`;
+  $("#anel-numeros").textContent =
+    `${formatarReais(total.gasto)} de ${formatarReais(total.limite)} (${total.porcentagem}%) em ${categorias}`;
+  const estouradas = total.estouradas.length === 1
+    ? `${total.estouradas[0]} estourou`
+    : `${total.estouradas.join(", ")} estouraram`;
+  $("#anel-aviso").textContent = textoDoAviso(total) + (total.estouradas.length ? ` · ${estouradas}` : "");
+  // Ao aparecer, parte do zero: o getBoundingClientRect força o navegador a desenhar o anel
+  // vazio antes, senão ele sai de display: none já cheio, sem transição.
+  const cheio = $("#anel-cheio");
+  if (aparecendo) {
+    cheio.style.strokeDasharray = "0 100";
+    cheio.getBoundingClientRect();
+  }
+  requestAnimationFrame(() => {
+    cheio.style.strokeDasharray = `${Math.min(total.porcentagem, 100)} 100`;
+  });
+}
+
 // ---------- Lista de gastos ----------
 
 function desenharGastos(gastos) {
@@ -1068,16 +1099,18 @@ function iniciarBrilho() {
 async function recarregar() {
   const mesOrcamento = estado.mes || mesDeHoje();
   // Os pedidos saem juntos (Promise.all) em vez de um esperar o outro.
-  const [resumo, gastos, situacoes, recorrentes, categorias, meusNomes] = await Promise.all([
+  const [resumo, gastos, situacoes, totalOrcamento, recorrentes, categorias, meusNomes] = await Promise.all([
     api(`/resumo${filtroMes()}`),
     api(`/gastos${filtroMes()}`),
     api(`/orcamentos?mes=${mesOrcamento}`),
+    api(`/orcamentos/total?mes=${mesOrcamento}`),
     api("/recorrentes"),
     api("/categorias"),
     api("/importar/meus-nomes"),
     carregarMeses(),
   ]);
   desenharNumeros(resumo, gastos);
+  desenharAnel(totalOrcamento, mesOrcamento);
   desenharBarras(resumo);
   desenharGastos(gastos);
   desenharUltimos(gastos);

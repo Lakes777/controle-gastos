@@ -38,7 +38,7 @@ from gastos.importacao import (
     validar_meu_nome,
 )
 from gastos.modelo import Gasto
-from gastos.orcamento import Situacao, calcular
+from gastos.orcamento import Situacao, calcular, estouradas, nivel_do_total, somar
 from gastos.recorrentes import MESES_PARA_TRAS, Recorrente, meses_entre, primeiro_mes
 from gastos.web.banco_postgres import BancoPostgres
 from gastos.web.contas import (
@@ -75,6 +75,7 @@ from gastos.web.modelos import (
     RecorrenteSalvo,
     Resumo,
     SituacaoOrcamento,
+    TotalOrcamento,
     TotalCategoria,
 )
 
@@ -372,6 +373,31 @@ def situacao_do_mes(
     """Quanto já foi gasto de cada orçamento no mês."""
     mes = mes or f"{dia:%Y-%m}"
     return [para_situacao(s) for s in calcular(banco.listar(mes=mes), banco.listar_orcamentos())]
+
+
+@roteador_orcamentos.get("/total")
+def total_do_mes(
+    mes: str | None = Query(
+        default=None, pattern=PADRAO_MES, description="AAAA-MM (padrão: o mês atual)"
+    ),
+    banco: QualquerBanco = Depends(pegar_banco),
+    dia: date = Depends(hoje),
+) -> TotalOrcamento | None:
+    """Todos os orçamentos do mês somados (null se nenhuma categoria tem orçamento)."""
+    mes = mes or f"{dia:%Y-%m}"
+    situacoes = calcular(banco.listar(mes=mes), banco.listar_orcamentos())
+    total = somar(situacoes)
+    if total is None:
+        return None
+    return TotalOrcamento(
+        limite=total.limite,
+        gasto=total.gasto,
+        restante=total.restante,
+        porcentagem=int(total.porcentagem),
+        nivel=nivel_do_total(total, situacoes),
+        categorias=len(situacoes),
+        estouradas=estouradas(situacoes),
+    )
 
 
 @roteador_orcamentos.put("/{categoria}")

@@ -4,7 +4,18 @@ from decimal import Decimal
 import pytest
 
 from gastos.modelo import Gasto
-from gastos.orcamento import ATENCAO, ESTOUROU, OK, Situacao, calcular, desenhar, medidor
+from gastos.orcamento import (
+    ATENCAO,
+    ESTOUROU,
+    OK,
+    Situacao,
+    calcular,
+    desenhar,
+    estouradas,
+    medidor,
+    nivel_do_total,
+    somar,
+)
 
 
 def situacao(gasto, limite="500"):
@@ -74,3 +85,36 @@ def test_desenhar_alinha_as_categorias():
     assert linhas[1].startswith("uber     ")
     assert "84%" in linhas[0] and "ATENÇÃO" in linhas[0]
     assert desenhar([]) == []
+
+
+def test_somar_junta_gasto_e_limite_de_todas_as_categorias():
+    total = somar([
+        Situacao("mercado", Decimal("90"), Decimal("100")),
+        Situacao("lazer", Decimal("30.50"), Decimal("200")),
+    ])
+
+    assert (total.gasto, total.limite) == (Decimal("120.50"), Decimal("300"))
+    assert total.porcentagem == 40
+    assert total.nivel == OK
+
+
+def test_somar_sem_orcamento_nenhum():
+    assert somar([]) is None
+
+
+def test_total_ok_nao_esconde_a_categoria_estourada():
+    situacoes = [
+        Situacao("mercado", Decimal("120"), Decimal("100")),  # estourou
+        Situacao("lazer", Decimal("0"), Decimal("900")),
+        Situacao("casa", Decimal("101"), Decimal("100")),  # estourou
+    ]
+
+    total = somar(situacoes)
+    assert total.nivel == OK
+    assert estouradas(situacoes) == ["casa", "mercado"]
+    assert nivel_do_total(total, situacoes) == ATENCAO  # o que a tela mostra
+
+
+def test_nivel_do_total_sem_estouro_segue_o_total():
+    situacoes = [Situacao("mercado", Decimal("50"), Decimal("100"))]
+    assert nivel_do_total(somar(situacoes), situacoes) == OK

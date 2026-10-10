@@ -31,7 +31,7 @@ TOTAL             R$ 960,20
 - **Lembra a categoria de cada loja:** corrigiu "Paradojabar" para lazer uma vez, e as próximas compras lá já chegam como lazer na importação (a linha de comando marca com "categoria lembrada", a página com •)
 - **Pix para outra conta sua não é gasto:** com o seu nome cadastrado, a transferência do Inter para o Nubank (por exemplo) só troca o dinheiro de lugar e fica de fora
 - **Gastos recorrentes** (aluguel, internet, assinaturas), lançados sozinhos quando o dia chega, inclusive os meses em que o programa não foi aberto
-- **Orçamento** mensal por categoria, com aviso de ATENÇÃO a partir de 80% e de ESTOUROU acima do limite, mostrado também ao adicionar ou editar um gasto
+- **Orçamento** mensal por categoria, com aviso de ATENÇÃO a partir de 80% e de ESTOUROU acima do limite, mostrado também ao adicionar ou editar um gasto; no Resumo da página, um anel mostra quanto do orçamento do mês (todas as categorias somadas) já foi usado e quais estouraram
 - **Exportar** para planilha do Excel (`.xlsx`) ou CSV, geral ou de um mês; o `.xlsx` sai com valores em R$, datas de verdade e linha de total com fórmula
 - Aceita valores com vírgula (`45,90`) ou ponto (`45.90`)
 - Valida o que o usuário digita (valores negativos, texto inválido e datas erradas são recusados)
@@ -192,6 +192,7 @@ Depois, abra http://127.0.0.1:8000 no navegador. A página usa o mesmo banco da 
 | `GET/PATCH/DELETE /gastos/{id}` | vê, edita (só os campos enviados) e apaga |
 | `GET /resumo` | total do período e por categoria, com porcentagem |
 | `GET /orcamentos` | situação do orçamento do mês (ok, atenção, estourou) |
+| `GET /orcamentos/total` | todos os orçamentos do mês somados, com as categorias que estouraram (`null` se não há nenhum) |
 | `PUT/DELETE /orcamentos/{categoria}` | define ou apaga o limite mensal |
 | `GET/POST /recorrentes`, `DELETE /recorrentes/{id}` | gastos que se repetem todo mês |
 | `GET /exportar?formato=xlsx` | baixa a planilha (ou `csv`) |

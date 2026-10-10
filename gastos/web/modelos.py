@@ -99,6 +99,20 @@ class SituacaoOrcamento(BaseModel):
     aviso: str
 
 
+class TotalOrcamento(BaseModel):
+    """Todas as categorias com orçamento somadas, para o anel do Resumo."""
+
+    limite: ReaisResposta
+    gasto: ReaisResposta
+    restante: ReaisResposta = Field(description="Negativo quando estourou")
+    porcentagem: int
+    nivel: str = Field(
+        description="ok, atencao (a partir de 80% ou com alguma categoria estourada) ou estourou"
+    )
+    categorias: int = Field(description="Quantas categorias têm orçamento")
+    estouradas: list[str] = Field(description="Categorias que passaram do limite")
+
+
 class RecorrenteNovo(BaseModel):
     """Gasto que se repete todo mês, como aluguel ou assinatura."""
 

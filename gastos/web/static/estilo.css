@@ -722,6 +722,82 @@ select:focus-visible {
   text-transform: uppercase;
 }
 
+/* Anel do orçamento: todas as categorias com limite somadas. O SVG e a porcentagem dividem
+   a mesma célula da grade (o número fica no meio do anel). pathLength=100 no círculo deixa o
+   app.js escrever a porcentagem direto no stroke-dasharray. */
+.anel-orcamento {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 22px;
+  margin-bottom: 16px;
+}
+
+.anel,
+.anel__porcentagem {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+.anel {
+  width: 104px;
+  height: 104px;
+  rotate: -90deg; /* o anel começa a encher pelo alto */
+}
+
+.anel circle {
+  fill: none;
+  stroke-width: 9;
+}
+
+.anel__trilho {
+  stroke: rgb(231 233 228 / 0.07);
+}
+
+.anel__cheio {
+  stroke: var(--menta);
+  stroke-linecap: round;
+  stroke-dasharray: 0 100;
+  transition: stroke-dasharray 0.9s var(--ease-out);
+}
+
+.anel-orcamento--atencao .anel__cheio { stroke: var(--atencao); }
+.anel-orcamento--estourou .anel__cheio { stroke: var(--perigo); }
+.anel-orcamento--estourou { border-color: var(--perigo); }
+
+.anel__porcentagem {
+  place-self: center;
+  font-family: var(--serif);
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.anel-orcamento .link-aba {
+  white-space: nowrap;
+}
+
+.anel-orcamento__texto .cartao__cabecalho {
+  margin-bottom: 6px;
+}
+
+.anel-orcamento__numeros,
+.anel-orcamento__aviso {
+  margin: 0;
+}
+
+.anel-orcamento__numeros {
+  font-variant-numeric: tabular-nums;
+}
+
+.anel-orcamento__aviso {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.anel-orcamento--atencao .anel-orcamento__aviso { color: var(--atencao); }
+.anel-orcamento--estourou .anel-orcamento__aviso { color: var(--perigo); font-weight: 600; }
+
 .colunas {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
@@ -1512,6 +1588,25 @@ select:focus-visible {
 }
 
 @media (max-width: 560px) {
+  .anel-orcamento {
+    grid-template-columns: 80px minmax(0, 1fr);
+    column-gap: 16px;
+  }
+
+  .anel {
+    width: 80px;
+    height: 80px;
+  }
+
+  .anel__porcentagem {
+    font-size: 1.25rem;
+  }
+
+  .anel-orcamento__texto .cartao__cabecalho {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+
   .topo__titulo {
     font-size: 1.2rem;
   }

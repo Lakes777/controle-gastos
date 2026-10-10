@@ -214,6 +214,55 @@ def test_orcamento_do_mes_atual(cliente):
     assert cliente.get("/orcamentos?mes=2026-08").json()[0]["nivel"] == "estourou"
 
 
+def test_total_dos_orcamentos_do_mes(cliente):
+    adicionar(cliente, "90", "mercado")
+    adicionar(cliente, "250", "lazer")
+    adicionar(cliente, "999", "viagem")  # sem orçamento: fica de fora do total
+    adicionar(cliente, "500", "mercado", data="2026-08-01")  # outro mês
+    cliente.put("/orcamentos/mercado", json={"limite": "100"})
+    cliente.put("/orcamentos/lazer", json={"limite": "200"})
+
+    assert cliente.get("/orcamentos/total").json() == {
+        "limite": "300",
+        "gasto": "340",
+        "restante": "-40",
+        "porcentagem": 113,
+        "nivel": "estourou",
+        "categorias": 2,
+        "estouradas": ["lazer"],
+    }
+    agosto = cliente.get("/orcamentos/total?mes=2026-08").json()
+    assert (agosto["gasto"], agosto["estouradas"]) == ("500", ["mercado"])
+
+
+def test_total_ok_com_categoria_estourada_vem_como_atencao(cliente):
+    adicionar(cliente, "120", "mercado")
+    cliente.put("/orcamentos/mercado", json={"limite": "100"})
+    cliente.put("/orcamentos/casa", json={"limite": "900"})
+
+    total = cliente.get("/orcamentos/total").json()
+    assert (total["porcentagem"], total["nivel"], total["estouradas"]) == (12, "atencao", ["mercado"])
+
+
+def test_categoria_chamada_total_nao_esconde_o_resumo(cliente):
+    adicionar(cliente, "10", "total")
+    assert cliente.put("/orcamentos/total", json={"limite": "50"}).status_code == 200
+
+    resposta = cliente.get("/orcamentos/total").json()
+    assert resposta["categorias"] == 1 and resposta["gasto"] == "10"
+    assert cliente.get("/orcamentos").json()[0]["categoria"] == "total"
+    assert cliente.delete("/orcamentos/total").status_code == 204
+
+
+def test_total_sem_orcamento_e_null(cliente):
+    adicionar(cliente, "90", "mercado")
+    resposta = cliente.get("/orcamentos/total")
+
+    assert resposta.status_code == 200
+    assert resposta.json() is None
+    assert cliente.get("/orcamentos/total?mes=2026-8").status_code == 422
+
+
 def test_definir_orcamento_de_novo_troca_o_limite(cliente):
     cliente.put("/orcamentos/mercado", json={"limite": "100"})
     cliente.put("/orcamentos/mercado", json={"limite": "250.50"})

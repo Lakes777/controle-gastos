@@ -59,6 +59,34 @@ def calcular(gastos: Iterable[Gasto], orcamentos: dict[str, Decimal]) -> list[Si
     ]
 
 
+def somar(situacoes: Iterable[Situacao]) -> Situacao | None:
+    """Todas as categorias com orçamento juntas (None se não há nenhuma).
+
+    O nível do total pode ser ok mesmo com uma categoria estourada: por isso quem mostra
+    o total deve mostrar também quantas estouraram (estouradas()).
+    """
+    situacoes = list(situacoes)
+    if not situacoes:
+        return None
+    return Situacao(
+        "todas",
+        sum((s.gasto for s in situacoes), Decimal("0")),
+        sum((s.limite for s in situacoes), Decimal("0")),
+    )
+
+
+def estouradas(situacoes: Iterable[Situacao]) -> list[str]:
+    """As categorias que passaram do limite, em ordem alfabética."""
+    return sorted(s.categoria for s in situacoes if s.nivel == ESTOUROU)
+
+
+def nivel_do_total(total: Situacao, situacoes: Iterable[Situacao]) -> str:
+    """O nível do total, mas nunca ok com uma categoria estourada: aí vira atenção."""
+    if total.nivel == OK and estouradas(situacoes):
+        return ATENCAO
+    return total.nivel
+
+
 def medidor(situacao: Situacao, largura: int = 10) -> str:
     """Barra de 0 a 100% do limite, com trilho ░ no que ainda falta."""
     if situacao.gasto == 0:
